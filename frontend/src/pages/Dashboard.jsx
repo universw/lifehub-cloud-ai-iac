@@ -27,6 +27,44 @@ const categories = [
   "Travel",
 ];
 
+const allowedExtensions = [
+  ".pdf",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".txt",
+  ".md",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+];
+
+const blockedExtensions = [
+  ".env",
+  ".js",
+  ".ts",
+  ".json",
+  ".pem",
+  ".key",
+  ".p12",
+  ".pfx",
+  ".crt",
+  ".cer",
+  ".config",
+  ".yml",
+  ".yaml",
+];
+
+function getFileExtension(fileName) {
+  const lastDotIndex = fileName.lastIndexOf(".");
+  if (lastDotIndex === -1) return "";
+  return fileName.slice(lastDotIndex).toLowerCase();
+}
+
 function formatBytes(bytes) {
   if (!bytes) return "0 B";
 
@@ -100,9 +138,26 @@ function Dashboard({ user }) {
 
     const maxSizeMb = 10;
     const maxSizeBytes = maxSizeMb * 1024 * 1024;
+    const extension = getFileExtension(file.name);
 
     if (file.size > maxSizeBytes) {
       setError(`File is too large. Please upload files under ${maxSizeMb}MB.`);
+      setSelectedFile(null);
+      event.target.value = "";
+      return;
+    }
+
+    if (blockedExtensions.includes(extension)) {
+      setError(
+        `${extension} files are blocked in LifeHub Documents. Use the future encrypted Vault feature for secrets/config files.`
+      );
+      setSelectedFile(null);
+      event.target.value = "";
+      return;
+    }
+
+    if (!allowedExtensions.includes(extension)) {
+      setError(`Unsupported file type. Allowed: ${allowedExtensions.join(", ")}`);
       setSelectedFile(null);
       event.target.value = "";
       return;
@@ -272,8 +327,18 @@ function Dashboard({ user }) {
 
             <label>
               File
-              <input type="file" onChange={handleFileChange} />
+              <input
+                type="file"
+                accept={allowedExtensions.join(",")}
+                onChange={handleFileChange}
+              />
             </label>
+
+            <p className="helper-text">
+              Allowed: PDF, images, text,Markdown, Word, Excel, and PowerPoint files.
+              Secret/config files like .env, .pem, .key, .json, and .js are
+              blocked for now.
+            </p>
 
             {selectedFile && (
               <p className="muted">
