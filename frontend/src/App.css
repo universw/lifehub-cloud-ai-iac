@@ -1710,3 +1710,30 @@ strong {
     align-items: flex-start;
   }
 }
+.ai-summary-box {
+  margin-top: 18px;
+  border: 1px solid #bfdbfe;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.12), transparent 32%),
+    linear-gradient(135deg, #eff6ff, #ffffff);
+  padding: 18px;
+}
+
+.ai-summary-box strong {
+  color: #1e3a8a;
+}
+
+.ai-summary-box p {
+  margin: 8px 0 0;
+}
+
+.ai-summary-box ul {
+  margin: 12px 0 0;
+  padding-left: 20px;
+}
+
+.ai-summary-box li {
+  margin-bottom: 6px;
+  color: #334155;
+}

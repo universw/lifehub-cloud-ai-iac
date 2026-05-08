@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { sendEmailVerification, signOut } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
 import {
   addDoc,
   collection,
@@ -19,7 +20,7 @@ import {
   ref,
   uploadBytesResumable,
 } from "firebase/storage";
-import { auth, db, storage } from "../firebase";
+import { auth, db, functions, storage } from "../firebase";
 
 const categories = [
   "Personal",
@@ -224,6 +225,8 @@ function Dashboard({ user }) {
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [sendingVerification, setSendingVerification] = useState(false);
+  const [aiSummaries, setAiSummaries] = useState({});
+  const [summarizingNoteId, setSummarizingNoteId] = useState("");
 
   useEffect(() => {
     const filesRef = collection(db, "users", user.uid, "files");
@@ -765,6 +768,32 @@ function Dashboard({ user }) {
       setError(err.message || "Failed to delete note.");
     } finally {
       setDeletingNoteId("");
+    }
+  }
+
+  async function handleSummarizeNote(note) {
+    setError("");
+    setSuccessMessage("");
+    setSummarizingNoteId(note.id);
+
+    try {
+      const summarizeNote = httpsCallable(functions, "summarizeNote");
+
+      const result = await summarizeNote({
+        title: note.title || "",
+        body: note.body || "",
+      });
+
+      setAiSummaries((current) => ({
+        ...current,
+        [note.id]: result.data,
+      }));
+
+      await logActivity("note_summarized", "ai", "Generated an AI note summary");
+    } catch (err) {
+      setError(err.message || "Failed to summarize note.");
+    } finally {
+      setSummarizingNoteId("");
     }
   }
 
@@ -1676,6 +1705,17 @@ function Dashboard({ user }) {
                           <button
                             type="button"
                             className="secondary-button"
+                            disabled={summarizingNoteId === note.id}
+                            onClick={() => handleSummarizeNote(note)}
+                          >
+                            {summarizingNoteId === note.id
+                              ? "Summarizing..."
+                              : "AI summary"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="secondary-button"
                             onClick={() => startEditNote(note)}
                           >
                             Edit
@@ -1692,6 +1732,21 @@ function Dashboard({ user }) {
                               : "Delete"}
                           </button>
                         </div>
+
+                        {aiSummaries[note.id] && (
+                          <div className="ai-summary-box">
+                            <strong>AI summary</strong>
+                            <p>{aiSummaries[note.id].summary}</p>
+
+                            {aiSummaries[note.id].actionItems?.length > 0 && (
+                              <ul>
+                                {aiSummaries[note.id].actionItems.map((item) => (
+                                  <li key={item}>{item}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
                       </>
                     )}
                   </article>
