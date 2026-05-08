@@ -27,6 +27,17 @@ const categories = [
   "Travel",
 ];
 
+const linkCategories = [
+  "General",
+  "School",
+  "Work",
+  "Portfolio",
+  "Learning",
+  "Tools",
+  "Finance",
+  "Travel",
+];
+
 const allowedExtensions = [
   ".pdf",
   ".png",
@@ -77,11 +88,34 @@ function formatBytes(bytes) {
   return `${size.toFixed(1)} ${units[index]}`;
 }
 
+function normalizeUrl(url) {
+  const trimmedUrl = url.trim();
+
+  if (
+    trimmedUrl.startsWith("https://") ||
+    trimmedUrl.startsWith("http://")
+  ) {
+    return trimmedUrl;
+  }
+
+  return `https://${trimmedUrl}`;
+}
+
+function isValidUrl(url) {
+  try {
+    const parsedUrl = new URL(normalizeUrl(url));
+    return parsedUrl.protocol === "https:" || parsedUrl.protocol === "http:";
+  } catch {
+    return false;
+  }
+}
+
 function Dashboard({ user }) {
   const [activeView, setActiveView] = useState("dashboard");
 
   const [files, setFiles] = useState([]);
   const [notes, setNotes] = useState([]);
+  const [links, setLinks] = useState([]);
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [category, setCategory] = useState("Personal");
@@ -91,11 +125,19 @@ function Dashboard({ user }) {
   const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
 
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkCategory, setLinkCategory] = useState("General");
+  const [linkSearchTerm, setLinkSearchTerm] = useState("");
+  const [linkCategoryFilter, setLinkCategoryFilter] = useState("All");
+
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
+  const [savingLink, setSavingLink] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState("");
   const [deletingNoteId, setDeletingNoteId] = useState("");
+  const [deletingLinkId, setDeletingLinkId] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -142,6 +184,28 @@ function Dashboard({ user }) {
     return () => unsubscribe();
   }, [user.uid]);
 
+  useEffect(() => {
+    const linksRef = collection(db, "users", user.uid, "links");
+    const linksQuery = query(linksRef, orderBy("createdAt", "desc"));
+
+    const unsubscribe = onSnapshot(
+      linksQuery,
+      (snapshot) => {
+        const nextLinks = snapshot.docs.map((docSnapshot) => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data(),
+        }));
+
+        setLinks(nextLinks);
+      },
+      (snapshotError) => {
+        setError(snapshotError.message || "Failed to load links.");
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user.uid]);
+
   const filteredFiles = files.filter((file) => {
     const fileName = file.fileName || "";
     const matchesSearch = fileName
@@ -154,12 +218,27 @@ function Dashboard({ user }) {
     return matchesSearch && matchesCategory;
   });
 
+  const filteredLinks = links.filter((link) => {
+    const title = link.title || "";
+    const url = link.url || "";
+
+    const matchesSearch =
+      title.toLowerCase().includes(linkSearchTerm.toLowerCase()) ||
+      url.toLowerCase().includes(linkSearchTerm.toLowerCase());
+
+    const matchesCategory =
+      linkCategoryFilter === "All" || link.category === linkCategoryFilter;
+
+    return matchesSearch && matchesCategory;
+  });
+
   const totalStorageBytes = files.reduce((total, file) => {
     return total + (file.fileSize || 0);
   }, 0);
 
   const latestFiles = files.slice(0, 3);
   const latestNotes = notes.slice(0, 3);
+  const latestLinks = links.slice(0, 3);
 
   async function handleLogout() {
     await signOut(auth);
@@ -333,6 +412,64 @@ function Dashboard({ user }) {
     }
   }
 
+  async function handleCreateLink(event) {
+    event.preventDefault();
+
+    if (!linkTitle.trim()) {
+      setError("Please enter a link title.");
+      return;
+    }
+
+    if (!linkUrl.trim()) {
+      setError("Please enter a link URL.");
+      return;
+    }
+
+    if (!isValidUrl(linkUrl)) {
+      setError("Please enter a valid URL.");
+      return;
+    }
+
+    setError("");
+    setSavingLink(true);
+
+    try {
+      const normalizedUrl = normalizeUrl(linkUrl);
+
+      await addDoc(collection(db, "users", user.uid, "links"), {
+        title: linkTitle.trim(),
+        url: normalizedUrl,
+        category: linkCategory,
+        createdAt: serverTimestamp(),
+      });
+
+      setLinkTitle("");
+      setLinkUrl("");
+      setLinkCategory("General");
+    } catch (err) {
+      setError(err.message || "Failed to save link.");
+    } finally {
+      setSavingLink(false);
+    }
+  }
+
+  async function handleDeleteLink(link) {
+    const confirmed = window.confirm(`Delete link "${link.title}"?`);
+
+    if (!confirmed) return;
+
+    setError("");
+    setDeletingLinkId(link.id);
+
+    try {
+      await deleteDoc(doc(db, "users", user.uid, "links", link.id));
+    } catch (err) {
+      setError(err.message || "Failed to delete link.");
+    } finally {
+      setDeletingLinkId("");
+    }
+  }
+
   function openView(viewName) {
     setActiveView(viewName);
     setError("");
@@ -412,7 +549,7 @@ function Dashboard({ user }) {
               {activeView === "notes" &&
                 "Save private notes, reminders, checklists, and personal records."}
               {activeView === "links" &&
-                "Save useful links and resources in one place."}
+                "Save useful websites, tools, school resources, and portfolio references."}
               {activeView === "settings" &&
                 "Manage your account and LifeHub preferences."}
             </p>
@@ -442,6 +579,12 @@ function Dashboard({ user }) {
                 <p className="muted">Notes</p>
                 <h2>{notes.length}</h2>
                 <p className="muted">Private notes saved in your LifeHub.</p>
+              </article>
+
+              <article className="stat-card">
+                <p className="muted">Links</p>
+                <h2>{links.length}</h2>
+                <p className="muted">Saved websites and resources.</p>
               </article>
 
               <article className="stat-card">
@@ -518,6 +661,43 @@ function Dashboard({ user }) {
                         <strong>{note.title}</strong>
                         <span>{note.body.slice(0, 80)}</span>
                       </button>
+                    ))}
+                  </div>
+                )}
+              </article>
+
+              <article className="overview-card">
+                <div className="section-title">
+                  <div>
+                    <h2>Recent links</h2>
+                    <p className="muted">Latest saved resources</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => openView("links")}
+                  >
+                    View links
+                  </button>
+                </div>
+
+                {latestLinks.length === 0 ? (
+                  <p className="muted">No links saved yet.</p>
+                ) : (
+                  <div className="compact-list">
+                    {latestLinks.map((link) => (
+                      <a
+                        href={link.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        key={link.id}
+                      >
+                        <strong>{link.title}</strong>
+                        <span>
+                          {link.category} · {link.url}
+                        </span>
+                      </a>
                     ))}
                   </div>
                 )}
@@ -719,20 +899,114 @@ function Dashboard({ user }) {
         )}
 
         {activeView === "links" && (
-          <section className="empty-product-card">
-            <h2>Links are coming next</h2>
-            <p className="muted">
-              This section will let users save important websites, resources,
-              portfolio links, school links, documents, and references.
-            </p>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => openView("dashboard")}
-            >
-              Back to dashboard
-            </button>
-          </section>
+          <>
+            <section className="links-card">
+              <div className="section-title">
+                <div>
+                  <h2>Save a link</h2>
+                  <p className="muted">
+                    Save useful websites, resources, tools, school pages, and
+                    portfolio references.
+                  </p>
+                </div>
+              </div>
+
+              <form className="link-form" onSubmit={handleCreateLink}>
+                <label>
+                  Link title
+                  <input
+                    type="text"
+                    value={linkTitle}
+                    onChange={(event) => setLinkTitle(event.target.value)}
+                    placeholder="Example: AWS Documentation"
+                  />
+                </label>
+
+                <label>
+                  URL
+                  <input
+                    type="url"
+                    value={linkUrl}
+                    onChange={(event) => setLinkUrl(event.target.value)}
+                    placeholder="https://example.com"
+                  />
+                </label>
+
+                <label>
+                  Category
+                  <select
+                    value={linkCategory}
+                    onChange={(event) => setLinkCategory(event.target.value)}
+                  >
+                    {linkCategories.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <button type="submit" disabled={savingLink}>
+                  {savingLink ? "Saving..." : "Save link"}
+                </button>
+              </form>
+            </section>
+
+            <section className="links-card">
+              <div className="section-title">
+                <div>
+                  <h2>Link library</h2>
+                  <p className="muted">
+                    Showing {filteredLinks.length} of {links.length} link(s)
+                  </p>
+                </div>
+              </div>
+
+              <div className="file-toolbar">
+                <input
+                  type="search"
+                  value={linkSearchTerm}
+                  onChange={(event) => setLinkSearchTerm(event.target.value)}
+                  placeholder="Search by title or URL..."
+                />
+
+                <select
+                  value={linkCategoryFilter}
+                  onChange={(event) => setLinkCategoryFilter(event.target.value)}
+                >
+                  <option>All</option>
+                  {linkCategories.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
+              </div>
+
+              {links.length === 0 ? (
+                <p className="muted">No links saved yet.</p>
+              ) : filteredLinks.length === 0 ? (
+                <p className="muted">No links match your search or filter.</p>
+              ) : (
+                <div className="link-list">
+                  {filteredLinks.map((link) => (
+                    <article className="link-item" key={link.id}>
+                      <a href={link.url} target="_blank" rel="noreferrer">
+                        <strong>{link.title}</strong>
+                        <span>{link.url}</span>
+                        <p>{link.category}</p>
+                      </a>
+
+                      <button
+                        type="button"
+                        className="danger-button"
+                        disabled={deletingLinkId === link.id}
+                        onClick={() => handleDeleteLink(link)}
+                      >
+                        {deletingLinkId === link.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
         )}
 
         {activeView === "settings" && (
