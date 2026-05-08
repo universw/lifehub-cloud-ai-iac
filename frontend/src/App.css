@@ -824,3 +824,134 @@ select {
 .dashboard-main {
   padding-top: 64px;
 }
+/* Responsive product layout polish */
+@media (max-width: 900px) {
+  .dashboard-page {
+    display: block;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    width: 100%;
+    min-height: auto;
+    padding: 18px 20px;
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  .sidebar > div:first-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sidebar h2 {
+    margin: 0;
+    font-size: 1.2rem;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 14px 0 2px;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+    padding: 11px 14px;
+    min-width: fit-content;
+  }
+
+  .logout-button {
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  .dashboard-main {
+    padding: 28px 18px 40px;
+  }
+
+  .dashboard-header {
+    grid-template-columns: 1fr;
+    gap: 18px;
+    text-align: left;
+  }
+
+  .profile-pill {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-card,
+  .files-card,
+  .notes-card,
+  .links-card,
+  .overview-card,
+  .settings-card,
+  .empty-product-card {
+    padding: 22px;
+    border-radius: 20px;
+  }
+
+  .section-title {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-main {
+    padding: 24px 14px 34px;
+  }
+
+  .dashboard-header h1 {
+    font-size: 2rem;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .file-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .file-row,
+  .link-item,
+  .note-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .file-link {
+    align-items: flex-start;
+  }
+
+  .file-link span {
+    align-self: flex-start;
+  }
+
+  .danger-button,
+  .secondary-button {
+    width: 100%;
+  }
+
+  .usage-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-pill strong {
+    word-break: break-word;
+  }
+}
