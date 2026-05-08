@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
@@ -41,6 +42,14 @@ function getFriendlyError(message) {
     return "No account found with this email.";
   }
 
+  if (message.includes("auth/missing-email")) {
+    return "Please enter your email address first.";
+  }
+
+  if (message.includes("auth/too-many-requests")) {
+    return "Too many attempts. Please wait a moment and try again.";
+  }
+
   if (message.includes("auth/api-key-not-valid")) {
     return "Firebase API key is invalid. Please check your Firebase configuration.";
   }
@@ -60,6 +69,7 @@ function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const isRegister = mode === "register";
@@ -80,6 +90,7 @@ function Login() {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setError("");
+    setSuccessMessage("");
   }
 
   function openAuth(nextMode) {
@@ -90,6 +101,7 @@ function Login() {
   async function handleSubmit(event) {
     event.preventDefault();
     setError("");
+    setSuccessMessage("");
 
     if (isRegister) {
       if (!displayName.trim()) {
@@ -114,7 +126,7 @@ function Login() {
       if (isRegister) {
         const credential = await createUserWithEmailAndPassword(
           auth,
-          email,
+          email.trim(),
           password
         );
 
@@ -126,8 +138,31 @@ function Login() {
           createdAt: serverTimestamp(),
         });
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        await signInWithEmailAndPassword(auth, email.trim(), password);
       }
+    } catch (err) {
+      setError(getFriendlyError(err.message));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasswordReset() {
+    setError("");
+    setSuccessMessage("");
+
+    if (!email.trim()) {
+      setError("Please enter your email first, then click Forgot password.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setSuccessMessage(
+        "Password reset email sent. Please check your inbox or spam folder."
+      );
     } catch (err) {
       setError(getFriendlyError(err.message));
     } finally {
@@ -326,6 +361,7 @@ function Login() {
           onClick={() => {
             setShowAuth(false);
             setError("");
+            setSuccessMessage("");
           }}
         >
           ← Back to overview
@@ -376,7 +412,11 @@ function Login() {
             <input
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
+              onChange={(event) => {
+                setEmail(event.target.value);
+                setError("");
+                setSuccessMessage("");
+              }}
               placeholder="you@example.com"
               required
             />
@@ -404,6 +444,17 @@ function Login() {
               </button>
             </div>
           </label>
+
+          {!isRegister && (
+            <button
+              type="button"
+              className="forgot-password-button"
+              onClick={handlePasswordReset}
+              disabled={loading}
+            >
+              Forgot password?
+            </button>
+          )}
 
           {isRegister && (
             <>
@@ -462,6 +513,7 @@ function Login() {
             </>
           )}
 
+          {successMessage && <p className="success-text">{successMessage}</p>}
           {error && <p className="error">{error}</p>}
 
           <button type="submit" disabled={loading}>

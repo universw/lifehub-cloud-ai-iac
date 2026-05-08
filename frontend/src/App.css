@@ -2083,3 +2083,27 @@ strong {
     grid-template-columns: 1fr;
   }
 }
+.forgot-password-button {
+  width: fit-content;
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  padding: 0;
+  box-shadow: none;
+  font-weight: 800;
+}
+
+.forgot-password-button:hover {
+  background: transparent;
+  color: #1d4ed8;
+  transform: none;
+  box-shadow: none;
+}
+
+.success-text {
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 800;
+}
