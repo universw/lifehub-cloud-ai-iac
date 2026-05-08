@@ -3,6 +3,13 @@ const { defineSecret } = require("firebase-functions/params");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { GoogleGenAI } = require("@google/genai");
+const admin = require("firebase-admin");
+
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
+const db = admin.firestore();
 
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
 
@@ -11,8 +18,57 @@ setGlobalOptions({
   region: "asia-northeast1",
 });
 
+const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
+
+const ALLOWED_UPLOAD_EXTENSIONS = [
+  ".pdf",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".txt",
+  ".md",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+];
+
+const BLOCKED_UPLOAD_EXTENSIONS = [
+  ".env",
+  ".js",
+  ".ts",
+  ".json",
+  ".py",
+  ".conf",
+  ".pem",
+  ".key",
+  ".p12",
+  ".pfx",
+  ".crt",
+  ".cer",
+  ".config",
+  ".yml",
+  ".yaml",
+];
+
 function cleanText(value) {
   return String(value || "").trim();
+}
+
+function getExtension(fileName) {
+  const lastDot = String(fileName || "").lastIndexOf(".");
+  if (lastDot === -1) return "";
+  return String(fileName).slice(lastDot).toLowerCase();
+}
+
+function requireAuth(request) {
+  if (!request.auth) {
+    throw new HttpsError("unauthenticated", "You must be signed in.");
+  }
+  return request.auth.uid;
 }
 
 function extractJson(text) {
@@ -43,17 +99,12 @@ function extractJson(text) {
 exports.summarizeNote = onCall(
   {
     secrets: [geminiApiKey],
-    enforceAppCheck: false,
+    enforceAppCheck: true,
     timeoutSeconds: 60,
     memory: "512MiB",
   },
   async (request) => {
-    if (!request.auth) {
-      throw new HttpsError(
-        "unauthenticated",
-        "You must be signed in to use AI summary."
-      );
-    }
+    const uid = requireAuth(request);
 
     const noteTitle = cleanText(request.data?.title);
     const noteBody = cleanText(request.data?.body);
@@ -73,10 +124,9 @@ exports.summarizeNote = onCall(
       process.env.GEMINI_API_KEY = geminiApiKey.value();
 
       logger.info("Gemini note summary requested", {
-        uid: request.auth.uid,
+        uid,
         titleLength: noteTitle.length,
         bodyLength: noteBody.length,
-        hasApiKey: Boolean(process.env.GEMINI_API_KEY),
       });
 
       const ai = new GoogleGenAI({});
@@ -121,18 +171,10 @@ ${noteBody}
 
       const responseText = cleanText(response.text);
 
-      logger.info("Gemini response received", {
-        uid: request.auth.uid,
-        responseLength: responseText.length,
-      });
-
       const parsed = extractJson(responseText);
 
       if (!parsed || typeof parsed.summary !== "string") {
-        logger.warn("Gemini returned non-JSON response", {
-          uid: request.auth.uid,
-          responseText,
-        });
+        logger.warn("Gemini returned non-JSON response", { uid });
 
         return {
           summary: responseText || "Gemini could not summarize this note.",
@@ -159,6 +201,150 @@ ${noteBody}
       throw new HttpsError(
         "internal",
         "LifeHub AI could not summarize this note right now."
+      );
+    }
+  }
+);
+
+exports.getWorkspaceStats = onCall(
+  { enforceAppCheck: true, timeoutSeconds: 30, memory: "256MiB" },
+  async (request) => {
+    const uid = requireAuth(request);
+
+    try {
+      const userRoot = db.collection("users").doc(uid);
+
+      const [filesSnap, notesSnap, linksSnap, activitySnap] = await Promise.all(
+        [
+          userRoot.collection("files").get(),
+          userRoot.collection("notes").get(),
+          userRoot.collection("links").get(),
+          userRoot.collection("activity").get(),
+        ]
+      );
+
+      let totalStorageBytes = 0;
+      let importantCount = 0;
+
+      filesSnap.forEach((d) => {
+        const data = d.data();
+        totalStorageBytes += data.fileSize || 0;
+        if (data.isImportant) importantCount += 1;
+      });
+      notesSnap.forEach((d) => {
+        if (d.data().isImportant) importantCount += 1;
+      });
+      linksSnap.forEach((d) => {
+        if (d.data().isImportant) importantCount += 1;
+      });
+
+      return {
+        filesCount: filesSnap.size,
+        notesCount: notesSnap.size,
+        linksCount: linksSnap.size,
+        activityCount: activitySnap.size,
+        importantCount,
+        totalStorageBytes,
+      };
+    } catch (err) {
+      logger.error("getWorkspaceStats failed", err);
+      throw new HttpsError(
+        "internal",
+        "Could not load workspace stats right now."
+      );
+    }
+  }
+);
+
+exports.validateUpload = onCall(
+  { enforceAppCheck: true, timeoutSeconds: 15, memory: "256MiB" },
+  async (request) => {
+    requireAuth(request);
+
+    const fileName = cleanText(request.data?.fileName);
+    const fileSize = Number(request.data?.fileSize) || 0;
+
+    const reasons = [];
+    const extension = getExtension(fileName);
+
+    if (!fileName) {
+      reasons.push("File name is required.");
+    }
+
+    if (fileSize <= 0) {
+      reasons.push("File size must be greater than zero.");
+    }
+
+    if (fileSize > MAX_UPLOAD_SIZE_BYTES) {
+      reasons.push(
+        `File exceeds the 10 MB limit (${(fileSize / 1024 / 1024).toFixed(
+          1
+        )} MB).`
+      );
+    }
+
+    if (BLOCKED_UPLOAD_EXTENSIONS.includes(extension)) {
+      reasons.push(`${extension} files are blocked for safety.`);
+    } else if (extension && !ALLOWED_UPLOAD_EXTENSIONS.includes(extension)) {
+      reasons.push(`${extension} is not an allowed file type.`);
+    } else if (!extension) {
+      reasons.push("File must have a recognized extension.");
+    }
+
+    return {
+      allowed: reasons.length === 0,
+      reasons,
+      maxUploadSizeBytes: MAX_UPLOAD_SIZE_BYTES,
+      allowedExtensions: ALLOWED_UPLOAD_EXTENSIONS,
+      blockedExtensions: BLOCKED_UPLOAD_EXTENSIONS,
+    };
+  }
+);
+
+exports.createSupportTicket = onCall(
+  { enforceAppCheck: true, timeoutSeconds: 30, memory: "256MiB" },
+  async (request) => {
+    const uid = requireAuth(request);
+
+    const subject = cleanText(request.data?.subject);
+    const message = cleanText(request.data?.message);
+
+    if (!subject) {
+      throw new HttpsError("invalid-argument", "Subject is required.");
+    }
+    if (subject.length > 120) {
+      throw new HttpsError("invalid-argument", "Subject is too long.");
+    }
+    if (!message) {
+      throw new HttpsError("invalid-argument", "Message is required.");
+    }
+    if (message.length > 2000) {
+      throw new HttpsError("invalid-argument", "Message is too long.");
+    }
+
+    try {
+      const ticketRef = db
+        .collection("users")
+        .doc(uid)
+        .collection("supportTickets")
+        .doc();
+
+      await ticketRef.set({
+        subject,
+        message,
+        status: "open",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return {
+        ticketId: ticketRef.id,
+        message: "Support ticket created. We'll get back to you by email.",
+      };
+    } catch (err) {
+      logger.error("createSupportTicket failed", err);
+      throw new HttpsError(
+        "internal",
+        "Could not create support ticket right now."
       );
     }
   }

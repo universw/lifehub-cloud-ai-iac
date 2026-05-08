@@ -542,7 +542,10 @@ function Dashboard({ user }) {
 
       await deleteUser(user);
     } catch (err) {
-      if (err.message?.includes("auth/requires-recent-login")) {
+      if (
+        err.code === "auth/requires-recent-login" ||
+        err.message?.includes("auth/requires-recent-login")
+      ) {
         setError(
           "For security, Firebase requires a recent login before deleting your account. Please log out, log in again, then try deleting your account."
         );
@@ -1432,7 +1435,7 @@ function Dashboard({ user }) {
                             onClick={() => openView("notes")}
                           >
                             <strong>★ {note.title}</strong>
-                            <span>{note.body.slice(0, 80)}</span>
+                            <span>{(note.body || "").slice(0, 80)}</span>
                           </button>
                         ))}
                       </div>
@@ -1538,7 +1541,7 @@ function Dashboard({ user }) {
                           {note.title}
                         </strong>
                         <span>
-                          {note.body.slice(0, 80)} ·{" "}
+                          {(note.body || "").slice(0, 80)} ·{" "}
                           {getUpdatedOrCreatedLabel(note)}
                         </span>
                       </button>
