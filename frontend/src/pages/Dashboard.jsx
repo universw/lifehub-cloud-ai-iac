@@ -5,6 +5,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -146,6 +147,7 @@ function Dashboard({ user }) {
   const [files, setFiles] = useState([]);
   const [notes, setNotes] = useState([]);
   const [links, setLinks] = useState([]);
+  const [activities, setActivities] = useState([]);
 
   const [profile, setProfile] = useState(null);
   const [displayName, setDisplayName] = useState("");
@@ -275,6 +277,32 @@ function Dashboard({ user }) {
     return () => unsubscribe();
   }, [user.uid]);
 
+  useEffect(() => {
+    const activityRef = collection(db, "users", user.uid, "activity");
+    const activityQuery = query(
+      activityRef,
+      orderBy("createdAt", "desc"),
+      limit(10)
+    );
+
+    const unsubscribe = onSnapshot(
+      activityQuery,
+      (snapshot) => {
+        const nextActivities = snapshot.docs.map((docSnapshot) => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data(),
+        }));
+
+        setActivities(nextActivities);
+      },
+      (snapshotError) => {
+        setError(snapshotError.message || "Failed to load activity.");
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user.uid]);
+
   const filteredFiles = files.filter((file) => {
     const fileName = file.fileName || "";
     const matchesSearch = fileName
@@ -319,6 +347,19 @@ function Dashboard({ user }) {
     await signOut(auth);
   }
 
+  async function logActivity(action, itemType, message) {
+    try {
+      await addDoc(collection(db, "users", user.uid, "activity"), {
+        action,
+        itemType,
+        message,
+        createdAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.warn("Failed to write activity log", err);
+    }
+  }
+
   async function handleSaveProfile(event) {
     event.preventDefault();
 
@@ -345,6 +386,8 @@ function Dashboard({ user }) {
         },
         { merge: true }
       );
+
+      await logActivity("profile_updated", "profile", "Updated profile settings");
     } catch (err) {
       setError(err.message || "Failed to save profile.");
     } finally {
@@ -359,10 +402,18 @@ function Dashboard({ user }) {
     setUpdatingImportantId(importantKey);
 
     try {
+      const nextImportantState = !item.isImportant;
+
       await updateDoc(doc(db, "users", user.uid, collectionName, item.id), {
-        isImportant: !item.isImportant,
+        isImportant: nextImportantState,
         updatedAt: serverTimestamp(),
       });
+
+      await logActivity(
+        nextImportantState ? "item_marked_important" : "item_unmarked_important",
+        collectionName.slice(0, -1),
+        nextImportantState ? "Marked an item as important" : "Unmarked an item as important"
+      );
     } catch (err) {
       setError(err.message || "Failed to update important status.");
     } finally {
@@ -459,6 +510,8 @@ function Dashboard({ user }) {
             createdAt: serverTimestamp(),
           });
 
+          await logActivity("file_uploaded", "file", "Uploaded a file");
+
           setSelectedFile(null);
           setUploadProgress(0);
           setUploading(false);
@@ -483,6 +536,7 @@ function Dashboard({ user }) {
 
       await deleteObject(fileStorageRef);
       await deleteDoc(doc(db, "users", user.uid, "files", file.id));
+      await logActivity("file_deleted", "file", "Deleted a file");
     } catch (err) {
       setError(err.message || "Failed to delete file.");
     } finally {
@@ -513,6 +567,8 @@ function Dashboard({ user }) {
         isImportant: false,
         createdAt: serverTimestamp(),
       });
+
+      await logActivity("note_created", "note", "Created a note");
 
       setNoteTitle("");
       setNoteBody("");
@@ -559,6 +615,8 @@ function Dashboard({ user }) {
         updatedAt: serverTimestamp(),
       });
 
+      await logActivity("note_updated", "note", "Updated a note");
+
       cancelEditNote();
     } catch (err) {
       setError(err.message || "Failed to update note.");
@@ -577,6 +635,7 @@ function Dashboard({ user }) {
 
     try {
       await deleteDoc(doc(db, "users", user.uid, "notes", note.id));
+      await logActivity("note_deleted", "note", "Deleted a note");
     } catch (err) {
       setError(err.message || "Failed to delete note.");
     } finally {
@@ -615,6 +674,8 @@ function Dashboard({ user }) {
         isImportant: false,
         createdAt: serverTimestamp(),
       });
+
+      await logActivity("link_created", "link", "Created a link");
 
       setLinkTitle("");
       setLinkUrl("");
@@ -672,6 +733,8 @@ function Dashboard({ user }) {
         updatedAt: serverTimestamp(),
       });
 
+      await logActivity("link_updated", "link", "Updated a link");
+
       cancelEditLink();
     } catch (err) {
       setError(err.message || "Failed to update link.");
@@ -690,6 +753,7 @@ function Dashboard({ user }) {
 
     try {
       await deleteDoc(doc(db, "users", user.uid, "links", link.id));
+      await logActivity("link_deleted", "link", "Deleted a link");
     } catch (err) {
       setError(err.message || "Failed to delete link.");
     } finally {
@@ -716,6 +780,7 @@ function Dashboard({ user }) {
             type="button"
             onClick={() => openView("dashboard")}
           >
+            <span>🏠</span>
             Dashboard
           </button>
 
@@ -724,6 +789,7 @@ function Dashboard({ user }) {
             type="button"
             onClick={() => openView("files")}
           >
+            <span>📁</span>
             Files
           </button>
 
@@ -732,6 +798,7 @@ function Dashboard({ user }) {
             type="button"
             onClick={() => openView("notes")}
           >
+            <span>📝</span>
             Notes
           </button>
 
@@ -740,6 +807,7 @@ function Dashboard({ user }) {
             type="button"
             onClick={() => openView("links")}
           >
+            <span>🔗</span>
             Links
           </button>
 
@@ -748,6 +816,7 @@ function Dashboard({ user }) {
             type="button"
             onClick={() => openView("settings")}
           >
+            <span>⚙️</span>
             Settings
           </button>
         </nav>
@@ -826,10 +895,76 @@ function Dashboard({ user }) {
               </article>
 
               <article className="stat-card">
+                <p className="muted">Activity</p>
+                <h2>{activities.length}</h2>
+                <p className="muted">Latest safe audit log entries.</p>
+              </article>
+
+              <article className="stat-card">
                 <p className="muted">Storage used</p>
                 <h2>{formatBytes(totalStorageBytes)}</h2>
                 <p className="muted">Total size of your uploaded files.</p>
               </article>
+            </section>
+
+            <section className="quick-actions-card">
+              <div>
+                <p className="eyebrow">Quick actions</p>
+                <h2>What do you want to do next?</h2>
+                <p className="muted">
+                  Jump directly into the most common LifeHub tasks.
+                </p>
+              </div>
+
+              <div className="quick-actions-grid">
+                <button type="button" onClick={() => openView("files")}>
+                  <strong>📁 Upload file</strong>
+                  <span>Store a document or image</span>
+                </button>
+
+                <button type="button" onClick={() => openView("notes")}>
+                  <strong>📝 Create note</strong>
+                  <span>Save a private note</span>
+                </button>
+
+                <button type="button" onClick={() => openView("links")}>
+                  <strong>🔗 Save link</strong>
+                  <span>Bookmark a useful resource</span>
+                </button>
+              </div>
+            </section>
+
+            <section className="overview-card activity-card">
+              <div className="section-title">
+                <div>
+                  <h2>Recent activity</h2>
+                  <p className="muted">
+                    Safe audit log. Only generic activity is stored.
+                  </p>
+                </div>
+              </div>
+
+              {activities.length === 0 ? (
+                <div className="empty-state">
+                  <strong>No activity yet</strong>
+                  <p className="muted">
+                    Upload a file, create a note, save a link, or mark something
+                    important. Your safe activity history will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div className="activity-list">
+                  {activities.map((activity) => (
+                    <div className="activity-item" key={activity.id}>
+                      <span>{activity.itemType}</span>
+                      <div>
+                        <strong>{activity.message}</strong>
+                        <p className="meta-text">{formatDate(activity.createdAt)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section className="overview-card important-overview">
@@ -841,10 +976,13 @@ function Dashboard({ user }) {
               </div>
 
               {importantCount === 0 ? (
-                <p className="muted">
-                  No important items yet. Use the Mark important button on files,
-                  notes, or links.
-                </p>
+                <div className="empty-state">
+                  <strong>No important items yet</strong>
+                  <p className="muted">
+                    Use the Mark important button on files, notes, or links to pin
+                    the things you care about most.
+                  </p>
+                </div>
               ) : (
                 <div className="important-grid">
                   <div>
@@ -1597,6 +1735,11 @@ function Dashboard({ user }) {
                   <div>
                     <span>Important</span>
                     <strong>{importantCount}</strong>
+                  </div>
+
+                  <div>
+                    <span>Activity</span>
+                    <strong>{activities.length}</strong>
                   </div>
 
                   <div>
