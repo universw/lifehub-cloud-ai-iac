@@ -17,44 +17,35 @@ function validatePassword(password) {
   };
 }
 
-function getFriendlyError(message) {
-  if (message.includes("auth/email-already-in-use")) {
-    return "This email is already registered. Please log in instead.";
+const FRIENDLY_AUTH_ERRORS = {
+  "auth/email-already-in-use":
+    "This email is already registered. Please log in instead.",
+  "auth/invalid-email": "Please enter a valid email address.",
+  "auth/weak-password":
+    "Password is too weak. Please use a stronger password.",
+  "auth/invalid-credential": "Incorrect email or password.",
+  "auth/wrong-password": "Incorrect password.",
+  "auth/user-not-found": "No account found with this email.",
+  "auth/user-disabled": "This account has been disabled.",
+  "auth/missing-email": "Please enter your email address first.",
+  "auth/too-many-requests":
+    "Too many attempts. Please wait a moment and try again.",
+  "auth/network-request-failed":
+    "Network error. Check your connection and try again.",
+  "auth/api-key-not-valid":
+    "Firebase API key is invalid. Please check your Firebase configuration.",
+};
+
+function getFriendlyError(err) {
+  const code = err?.code || "";
+  if (FRIENDLY_AUTH_ERRORS[code]) return FRIENDLY_AUTH_ERRORS[code];
+
+  const message = String(err?.message || "");
+  for (const key of Object.keys(FRIENDLY_AUTH_ERRORS)) {
+    if (message.includes(key)) return FRIENDLY_AUTH_ERRORS[key];
   }
 
-  if (message.includes("auth/invalid-email")) {
-    return "Please enter a valid email address.";
-  }
-
-  if (message.includes("auth/weak-password")) {
-    return "Password is too weak. Please use a stronger password.";
-  }
-
-  if (message.includes("auth/invalid-credential")) {
-    return "Incorrect email or password.";
-  }
-
-  if (message.includes("auth/wrong-password")) {
-    return "Incorrect password.";
-  }
-
-  if (message.includes("auth/user-not-found")) {
-    return "No account found with this email.";
-  }
-
-  if (message.includes("auth/missing-email")) {
-    return "Please enter your email address first.";
-  }
-
-  if (message.includes("auth/too-many-requests")) {
-    return "Too many attempts. Please wait a moment and try again.";
-  }
-
-  if (message.includes("auth/api-key-not-valid")) {
-    return "Firebase API key is invalid. Please check your Firebase configuration.";
-  }
-
-  return message || "Authentication failed.";
+  return "Authentication failed. Please try again.";
 }
 
 function Login() {
@@ -141,7 +132,7 @@ function Login() {
         await signInWithEmailAndPassword(auth, email.trim(), password);
       }
     } catch (err) {
-      setError(getFriendlyError(err.message));
+      setError(getFriendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -164,7 +155,7 @@ function Login() {
         "Password reset email sent. Please check your inbox or spam folder."
       );
     } catch (err) {
-      setError(getFriendlyError(err.message));
+      setError(getFriendlyError(err));
     } finally {
       setLoading(false);
     }
