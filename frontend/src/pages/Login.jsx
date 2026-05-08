@@ -49,6 +49,7 @@ function getFriendlyError(message) {
 }
 
 function Login() {
+  const [showAuth, setShowAuth] = useState(false);
   const [mode, setMode] = useState("login");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -79,6 +80,11 @@ function Login() {
     setShowPassword(false);
     setShowConfirmPassword(false);
     setError("");
+  }
+
+  function openAuth(nextMode) {
+    resetForm(nextMode);
+    setShowAuth(true);
   }
 
   async function handleSubmit(event) {
@@ -129,9 +135,202 @@ function Login() {
     }
   }
 
+  if (!showAuth) {
+    return (
+      <main className="landing-page">
+        <header className="landing-nav">
+          <div>
+            <p className="eyebrow">LifeHub</p>
+            <strong>AI Cloud</strong>
+          </div>
+
+          <div className="landing-nav-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => openAuth("login")}
+            >
+              Log in
+            </button>
+
+            <button type="button" onClick={() => openAuth("register")}>
+              Create account
+            </button>
+          </div>
+        </header>
+
+        <section className="landing-hero">
+          <div className="landing-hero-content">
+            <p className="eyebrow">Secure personal cloud workspace</p>
+            <h1>Organize your files, notes, links, and life records in one place.</h1>
+            <p className="muted">
+              LifeHub AI Cloud is a personal productivity and document management
+              workspace built with Firebase, Google Cloud, React, and Terraform.
+              It helps you keep important information searchable, organized, and
+              protected by user-isolated cloud security rules.
+            </p>
+
+            <div className="landing-actions">
+              <button type="button" onClick={() => openAuth("register")}>
+                Start your LifeHub
+              </button>
+
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => openAuth("login")}
+              >
+                I already have an account
+              </button>
+            </div>
+
+            <div className="landing-proof">
+              <span>Firebase Auth</span>
+              <span>Firestore</span>
+              <span>Cloud Storage</span>
+              <span>App Check</span>
+              <span>Cloud Functions</span>
+            </div>
+          </div>
+
+          <div className="landing-preview-card">
+            <div className="preview-window-bar">
+              <span />
+              <span />
+              <span />
+            </div>
+
+            <div className="preview-dashboard">
+              <div>
+                <p className="eyebrow">Workspace overview</p>
+                <h2>Henry&apos;s LifeHub</h2>
+              </div>
+
+              <div className="preview-stats">
+                <article>
+                  <span>📁</span>
+                  <strong>Files</strong>
+                  <p>Documents, receipts, certificates</p>
+                </article>
+
+                <article>
+                  <span>📝</span>
+                  <strong>Notes</strong>
+                  <p>Private checklists and reminders</p>
+                </article>
+
+                <article>
+                  <span>🔗</span>
+                  <strong>Links</strong>
+                  <p>Resources, tools, and references</p>
+                </article>
+
+                <article>
+                  <span>📊</span>
+                  <strong>Activity</strong>
+                  <p>Safe audit history</p>
+                </article>
+              </div>
+
+              <div className="preview-security">
+                <strong>Security center</strong>
+                <p>User data isolation enabled</p>
+                <p>Safer uploads enabled</p>
+                <p>App Check monitoring active</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="landing-feature-grid">
+          <article>
+            <span>📁</span>
+            <h3>File library</h3>
+            <p>
+              Upload and organize important personal documents by category,
+              search, size, and important status.
+            </p>
+          </article>
+
+          <article>
+            <span>📝</span>
+            <h3>Private notes</h3>
+            <p>
+              Save checklists, reminders, study plans, personal records, and
+              important ideas inside your workspace.
+            </p>
+          </article>
+
+          <article>
+            <span>🔗</span>
+            <h3>Useful links</h3>
+            <p>
+              Store school resources, portfolio references, learning pages,
+              finance links, and tools.
+            </p>
+          </article>
+
+          <article>
+            <span>🛡️</span>
+            <h3>Security-first design</h3>
+            <p>
+              User-isolated Firestore and Storage rules keep each account&apos;s
+              data scoped to its own user ID.
+            </p>
+          </article>
+
+          <article>
+            <span>📊</span>
+            <h3>Activity log</h3>
+            <p>
+              Track safe, generic audit events so users can understand what
+              happened in their workspace.
+            </p>
+          </article>
+
+          <article>
+            <span>☁️</span>
+            <h3>Cloud portfolio stack</h3>
+            <p>
+              Built with React, Firebase, Google Cloud, Cloud Functions, App
+              Check, and Terraform.
+            </p>
+          </article>
+        </section>
+
+        <section className="landing-cta-card">
+          <div>
+            <p className="eyebrow">Portfolio-ready product</p>
+            <h2>Built like a real cloud SaaS app.</h2>
+            <p className="muted">
+              LifeHub demonstrates authentication, cloud storage, database
+              security rules, serverless functions, activity logging, and a
+              polished frontend product experience.
+            </p>
+          </div>
+
+          <button type="button" onClick={() => openAuth("register")}>
+            Create account
+          </button>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="auth-page">
       <section className="auth-card">
+        <button
+          type="button"
+          className="auth-back-button"
+          onClick={() => {
+            setShowAuth(false);
+            setError("");
+          }}
+        >
+          ← Back to overview
+        </button>
+
         <div className="auth-header">
           <p className="eyebrow">LifeHub AI Cloud</p>
           <h1>{isRegister ? "Create your account" : "Welcome back"}</h1>
@@ -232,9 +431,7 @@ function Login() {
                   <input
                     type={showConfirmPassword ? "text" : "password"}
                     value={confirmPassword}
-                    onChange={(event) =>
-                      setConfirmPassword(event.target.value)
-                    }
+                    onChange={(event) => setConfirmPassword(event.target.value)}
                     placeholder="Re-enter your password"
                     required
                   />
