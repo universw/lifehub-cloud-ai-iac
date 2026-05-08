@@ -9,6 +9,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
 } from "firebase/firestore";
 import {
@@ -146,6 +147,10 @@ function Dashboard({ user }) {
   const [notes, setNotes] = useState([]);
   const [links, setLinks] = useState([]);
 
+  const [profile, setProfile] = useState(null);
+  const [displayName, setDisplayName] = useState("");
+  const [workspaceName, setWorkspaceName] = useState("");
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [category, setCategory] = useState("Personal");
   const [searchTerm, setSearchTerm] = useState("");
@@ -173,6 +178,7 @@ function Dashboard({ user }) {
   const [uploading, setUploading] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [savingLink, setSavingLink] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [updatingNote, setUpdatingNote] = useState(false);
   const [updatingLink, setUpdatingLink] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState("");
@@ -246,6 +252,28 @@ function Dashboard({ user }) {
     return () => unsubscribe();
   }, [user.uid]);
 
+  useEffect(() => {
+    const profileRef = doc(db, "users", user.uid, "profile", "settings");
+
+    const unsubscribe = onSnapshot(
+      profileRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+
+          setProfile(data);
+          setDisplayName(data.displayName || "");
+          setWorkspaceName(data.workspaceName || "");
+        }
+      },
+      (snapshotError) => {
+        setError(snapshotError.message || "Failed to load profile.");
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user.uid]);
+
   const filteredFiles = files.filter((file) => {
     const fileName = file.fileName || "";
     const matchesSearch = fileName
@@ -282,6 +310,39 @@ function Dashboard({ user }) {
 
   async function handleLogout() {
     await signOut(auth);
+  }
+
+  async function handleSaveProfile(event) {
+    event.preventDefault();
+
+    if (!displayName.trim()) {
+      setError("Please enter a display name.");
+      return;
+    }
+
+    if (!workspaceName.trim()) {
+      setError("Please enter a workspace name.");
+      return;
+    }
+
+    setError("");
+    setSavingProfile(true);
+
+    try {
+      await setDoc(
+        doc(db, "users", user.uid, "profile", "settings"),
+        {
+          displayName: displayName.trim(),
+          workspaceName: workspaceName.trim(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      setError(err.message || "Failed to save profile.");
+    } finally {
+      setSavingProfile(false);
+    }
   }
 
   function handleFileChange(event) {
@@ -671,9 +732,12 @@ function Dashboard({ user }) {
       <section className="dashboard-main">
         <header className="dashboard-header">
           <div>
-            <p className="eyebrow">Welcome back</p>
+            <p className="eyebrow">
+              Welcome back{profile?.displayName ? `, ${profile.displayName}` : ""}
+            </p>
             <h1>
-              {activeView === "dashboard" && "Your LifeHub Dashboard"}
+              {activeView === "dashboard" &&
+                (profile?.workspaceName || "Your LifeHub Dashboard")}
               {activeView === "files" && "Files"}
               {activeView === "notes" && "Notes"}
               {activeView === "links" && "Links"}
@@ -694,10 +758,12 @@ function Dashboard({ user }) {
           </div>
 
           <div className="profile-pill">
-            <span>{user.email?.charAt(0).toUpperCase()}</span>
+            <span>
+              {(profile?.displayName || user.email || "U").charAt(0).toUpperCase()}
+            </span>
             <div>
               <p className="profile-label">Signed in as</p>
-              <strong>{user.email}</strong>
+              <strong>{profile?.displayName || user.email}</strong>
             </div>
           </div>
         </header>
@@ -1288,6 +1354,32 @@ function Dashboard({ user }) {
               <article className="settings-card">
                 <p className="eyebrow">Account</p>
                 <h2>Profile</h2>
+
+                <form className="profile-form" onSubmit={handleSaveProfile}>
+                  <label>
+                    Display name
+                    <input
+                      type="text"
+                      value={displayName}
+                      onChange={(event) => setDisplayName(event.target.value)}
+                      placeholder="Example: Henry"
+                    />
+                  </label>
+
+                  <label>
+                    Workspace name
+                    <input
+                      type="text"
+                      value={workspaceName}
+                      onChange={(event) => setWorkspaceName(event.target.value)}
+                      placeholder="Example: Henry's LifeHub"
+                    />
+                  </label>
+
+                  <button type="submit" disabled={savingProfile}>
+                    {savingProfile ? "Saving..." : "Save profile"}
+                  </button>
+                </form>
 
                 <div className="settings-row">
                   <span>Email</span>

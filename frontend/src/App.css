@@ -1004,3 +1004,22 @@ select {
   font-size: 0.85rem;
   line-height: 1.4;
 }
+.profile-form {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.profile-form input {
+  margin-top: 8px;
+}
+
+.profile-form button {
+  width: fit-content;
+}
+
+@media (max-width: 700px) {
+  .profile-form button {
+    width: 100%;
+  }
+}
