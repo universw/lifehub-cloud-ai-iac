@@ -141,6 +141,33 @@ function getUpdatedOrCreatedLabel(item) {
   return `Created ${formatDate(item.createdAt)}`;
 }
 
+function getTimestampValue(timestamp) {
+  if (!timestamp?.toDate) return 0;
+  return timestamp.toDate().getTime();
+}
+
+function sortItems(items, sortType, labelKey) {
+  const nextItems = [...items];
+
+  return nextItems.sort((a, b) => {
+    if (sortType === "oldest") {
+      return getTimestampValue(a.createdAt) - getTimestampValue(b.createdAt);
+    }
+
+    if (sortType === "name" || sortType === "title") {
+      const firstLabel = (a[labelKey] || "").toLowerCase();
+      const secondLabel = (b[labelKey] || "").toLowerCase();
+      return firstLabel.localeCompare(secondLabel);
+    }
+
+    if (sortType === "size") {
+      return (b.fileSize || 0) - (a.fileSize || 0);
+    }
+
+    return getTimestampValue(b.createdAt) - getTimestampValue(a.createdAt);
+  });
+}
+
 function Dashboard({ user }) {
   const [activeView, setActiveView] = useState("dashboard");
 
@@ -157,9 +184,14 @@ function Dashboard({ user }) {
   const [category, setCategory] = useState("Personal");
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
+  const [fileImportantOnly, setFileImportantOnly] = useState(false);
+  const [fileSort, setFileSort] = useState("newest");
 
   const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
+  const [noteSearchTerm, setNoteSearchTerm] = useState("");
+  const [noteImportantOnly, setNoteImportantOnly] = useState(false);
+  const [noteSort, setNoteSort] = useState("newest");
 
   const [editingNoteId, setEditingNoteId] = useState("");
   const [editingNoteTitle, setEditingNoteTitle] = useState("");
@@ -170,6 +202,8 @@ function Dashboard({ user }) {
   const [linkCategory, setLinkCategory] = useState("General");
   const [linkSearchTerm, setLinkSearchTerm] = useState("");
   const [linkCategoryFilter, setLinkCategoryFilter] = useState("All");
+  const [linkImportantOnly, setLinkImportantOnly] = useState(false);
+  const [linkSort, setLinkSort] = useState("newest");
 
   const [editingLinkId, setEditingLinkId] = useState("");
   const [editingLinkTitle, setEditingLinkTitle] = useState("");
@@ -303,31 +337,60 @@ function Dashboard({ user }) {
     return () => unsubscribe();
   }, [user.uid]);
 
-  const filteredFiles = files.filter((file) => {
-    const fileName = file.fileName || "";
-    const matchesSearch = fileName
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+  const filteredFiles = sortItems(
+    files.filter((file) => {
+      const fileName = file.fileName || "";
+      const matchesSearch = fileName
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
-    const matchesCategory =
-      categoryFilter === "All" || file.category === categoryFilter;
+      const matchesCategory =
+        categoryFilter === "All" || file.category === categoryFilter;
 
-    return matchesSearch && matchesCategory;
-  });
+      const matchesImportant = !fileImportantOnly || file.isImportant;
 
-  const filteredLinks = links.filter((link) => {
-    const title = link.title || "";
-    const url = link.url || "";
+      return matchesSearch && matchesCategory && matchesImportant;
+    }),
+    fileSort,
+    "fileName"
+  );
 
-    const matchesSearch =
-      title.toLowerCase().includes(linkSearchTerm.toLowerCase()) ||
-      url.toLowerCase().includes(linkSearchTerm.toLowerCase());
+  const filteredNotes = sortItems(
+    notes.filter((note) => {
+      const title = note.title || "";
+      const body = note.body || "";
 
-    const matchesCategory =
-      linkCategoryFilter === "All" || link.category === linkCategoryFilter;
+      const matchesSearch =
+        title.toLowerCase().includes(noteSearchTerm.toLowerCase()) ||
+        body.toLowerCase().includes(noteSearchTerm.toLowerCase());
 
-    return matchesSearch && matchesCategory;
-  });
+      const matchesImportant = !noteImportantOnly || note.isImportant;
+
+      return matchesSearch && matchesImportant;
+    }),
+    noteSort,
+    "title"
+  );
+
+  const filteredLinks = sortItems(
+    links.filter((link) => {
+      const title = link.title || "";
+      const url = link.url || "";
+
+      const matchesSearch =
+        title.toLowerCase().includes(linkSearchTerm.toLowerCase()) ||
+        url.toLowerCase().includes(linkSearchTerm.toLowerCase());
+
+      const matchesCategory =
+        linkCategoryFilter === "All" || link.category === linkCategoryFilter;
+
+      const matchesImportant = !linkImportantOnly || link.isImportant;
+
+      return matchesSearch && matchesCategory && matchesImportant;
+    }),
+    linkSort,
+    "title"
+  );
 
   const totalStorageBytes = files.reduce((total, file) => {
     return total + (file.fileSize || 0);
@@ -1251,29 +1314,72 @@ function Dashboard({ user }) {
                 </div>
               </div>
 
-              <div className="file-toolbar">
-                <input
-                  type="search"
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Search by file name..."
-                />
+              <div className="library-controls">
+                <div className="file-toolbar">
+                  <input
+                    type="search"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                    placeholder="Search by file name..."
+                  />
 
-                <select
-                  value={categoryFilter}
-                  onChange={(event) => setCategoryFilter(event.target.value)}
-                >
-                  <option>All</option>
+                  <select
+                    value={fileSort}
+                    onChange={(event) => setFileSort(event.target.value)}
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="name">Name A-Z</option>
+                    <option value="size">Largest size</option>
+                  </select>
+                </div>
+
+                <div className="filter-chip-row">
+                  <button
+                    type="button"
+                    className={categoryFilter === "All" ? "filter-chip active" : "filter-chip"}
+                    onClick={() => setCategoryFilter("All")}
+                  >
+                    All
+                  </button>
+
                   {categories.map((item) => (
-                    <option key={item}>{item}</option>
+                    <button
+                      type="button"
+                      key={item}
+                      className={categoryFilter === item ? "filter-chip active" : "filter-chip"}
+                      onClick={() => setCategoryFilter(item)}
+                    >
+                      {item}
+                    </button>
                   ))}
-                </select>
+
+                  <button
+                    type="button"
+                    className={fileImportantOnly ? "filter-chip active important-filter" : "filter-chip important-filter"}
+                    onClick={() => setFileImportantOnly((current) => !current)}
+                  >
+                    ★ Important only
+                  </button>
+                </div>
               </div>
 
               {files.length === 0 ? (
-                <p className="muted">No files uploaded yet.</p>
+                <div className="empty-state">
+                  <strong>No files uploaded yet</strong>
+                  <p className="muted">
+                    Upload documents, images, receipts, certificates, or school files
+                    to start building your LifeHub library.
+                  </p>
+                </div>
               ) : filteredFiles.length === 0 ? (
-                <p className="muted">No files match your search or filter.</p>
+                <div className="empty-state">
+                  <strong>No files match your controls</strong>
+                  <p className="muted">
+                    Try changing the search text, category chip, important filter,
+                    or sort option.
+                  </p>
+                </div>
               ) : (
                 <div className="file-list">
                   {filteredFiles.map((file) => (
@@ -1336,7 +1442,9 @@ function Dashboard({ user }) {
             <div className="section-title">
               <div>
                 <h2>Notes</h2>
-                <p className="muted">{notes.length} note(s)</p>
+                <p className="muted">
+                  Showing {filteredNotes.length} of {notes.length} note(s)
+                </p>
               </div>
             </div>
 
@@ -1366,11 +1474,54 @@ function Dashboard({ user }) {
               </button>
             </form>
 
+            <div className="library-controls notes-controls">
+              <div className="file-toolbar">
+                <input
+                  type="search"
+                  value={noteSearchTerm}
+                  onChange={(event) => setNoteSearchTerm(event.target.value)}
+                  placeholder="Search by title or content..."
+                />
+
+                <select
+                  value={noteSort}
+                  onChange={(event) => setNoteSort(event.target.value)}
+                >
+                  <option value="newest">Newest first</option>
+                  <option value="oldest">Oldest first</option>
+                  <option value="title">Title A-Z</option>
+                </select>
+              </div>
+
+              <div className="filter-chip-row">
+                <button
+                  type="button"
+                  className={noteImportantOnly ? "filter-chip active important-filter" : "filter-chip important-filter"}
+                  onClick={() => setNoteImportantOnly((current) => !current)}
+                >
+                  ★ Important only
+                </button>
+              </div>
+            </div>
+
             {notes.length === 0 ? (
-              <p className="muted">No notes yet.</p>
+              <div className="empty-state">
+                <strong>No notes yet</strong>
+                <p className="muted">
+                  Create your first private note for reminders, checklists,
+                  school tasks, or personal records.
+                </p>
+              </div>
+            ) : filteredNotes.length === 0 ? (
+              <div className="empty-state">
+                <strong>No notes match your controls</strong>
+                <p className="muted">
+                  Try changing your search, important filter, or sort option.
+                </p>
+              </div>
             ) : (
               <div className="note-list">
-                {notes.map((note) => (
+                {filteredNotes.map((note) => (
                   <article className="note-item" key={note.id}>
                     {editingNoteId === note.id ? (
                       <form className="edit-form" onSubmit={handleUpdateNote}>
@@ -1527,29 +1678,71 @@ function Dashboard({ user }) {
                 </div>
               </div>
 
-              <div className="file-toolbar">
-                <input
-                  type="search"
-                  value={linkSearchTerm}
-                  onChange={(event) => setLinkSearchTerm(event.target.value)}
-                  placeholder="Search by title or URL..."
-                />
+              <div className="library-controls">
+                <div className="file-toolbar">
+                  <input
+                    type="search"
+                    value={linkSearchTerm}
+                    onChange={(event) => setLinkSearchTerm(event.target.value)}
+                    placeholder="Search by title or URL..."
+                  />
 
-                <select
-                  value={linkCategoryFilter}
-                  onChange={(event) => setLinkCategoryFilter(event.target.value)}
-                >
-                  <option>All</option>
+                  <select
+                    value={linkSort}
+                    onChange={(event) => setLinkSort(event.target.value)}
+                  >
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="title">Title A-Z</option>
+                  </select>
+                </div>
+
+                <div className="filter-chip-row">
+                  <button
+                    type="button"
+                    className={linkCategoryFilter === "All" ? "filter-chip active" : "filter-chip"}
+                    onClick={() => setLinkCategoryFilter("All")}
+                  >
+                    All
+                  </button>
+
                   {linkCategories.map((item) => (
-                    <option key={item}>{item}</option>
+                    <button
+                      type="button"
+                      key={item}
+                      className={linkCategoryFilter === item ? "filter-chip active" : "filter-chip"}
+                      onClick={() => setLinkCategoryFilter(item)}
+                    >
+                      {item}
+                    </button>
                   ))}
-                </select>
+
+                  <button
+                    type="button"
+                    className={linkImportantOnly ? "filter-chip active important-filter" : "filter-chip important-filter"}
+                    onClick={() => setLinkImportantOnly((current) => !current)}
+                  >
+                    ★ Important only
+                  </button>
+                </div>
               </div>
 
               {links.length === 0 ? (
-                <p className="muted">No links saved yet.</p>
+                <div className="empty-state">
+                  <strong>No links saved yet</strong>
+                  <p className="muted">
+                    Save documentation, tools, learning resources, school pages,
+                    or portfolio references.
+                  </p>
+                </div>
               ) : filteredLinks.length === 0 ? (
-                <p className="muted">No links match your search or filter.</p>
+                <div className="empty-state">
+                  <strong>No links match your controls</strong>
+                  <p className="muted">
+                    Try changing your search text, category chip, important filter,
+                    or sort option.
+                  </p>
+                </div>
               ) : (
                 <div className="link-list">
                   {filteredLinks.map((link) => (
