@@ -1,5 +1,8 @@
 # LifeHub AI Cloud
 
+![Frontend CI](https://github.com/universw/lifehub-cloud-ai-iac/actions/workflows/frontend-ci.yml/badge.svg)
+![Firebase Hosting](https://github.com/universw/lifehub-cloud-ai-iac/actions/workflows/firebase-hosting-merge.yml/badge.svg)
+
 LifeHub AI Cloud is a secure personal productivity and document management web app built with **React**, **Firebase**, **Google Cloud**, and **Terraform**.
 
 It helps users organize personal files, private notes, useful links, important items, profile settings, and safe activity history in one cloud-based workspace.
@@ -8,14 +11,38 @@ It helps users organize personal files, private notes, useful links, important i
 
 ---
 
+## Screenshots
+
+> Screenshots are stored using relative image paths so they render correctly inside GitHub.
+
+### Landing Page
+
+![LifeHub AI Cloud landing page](docs/images/landing-page.png)
+
+### Dashboard
+
+![LifeHub AI Cloud dashboard](docs/images/dashboard.png)
+
+### File Library
+
+![LifeHub AI Cloud file library](docs/images/files-page.png)
+
+### Security Center
+
+![LifeHub AI Cloud security center](docs/images/security-center.png)
+
+---
+
 ## Overview
 
-LifeHub AI Cloud is designed as a portfolio-ready cloud application that demonstrates full-stack product thinking, Firebase development, serverless architecture, cloud security rules, infrastructure-as-code, and deployment workflow.
+LifeHub AI Cloud is designed as a portfolio-ready cloud application that demonstrates full-stack product thinking, Firebase development, serverless architecture, cloud security rules, infrastructure-as-code, CI/CD, and deployment workflow.
 
 The app includes:
 
 - Public landing page
-- Authentication
+- Email/password authentication
+- Password reset
+- Account deletion flow
 - Dashboard
 - File library
 - Notes
@@ -26,11 +53,11 @@ The app includes:
 - Security center
 - Firebase Cloud Functions backend
 - Gemini AI summary prototype
+- Firebase Hosting GitHub Actions deployment
+- Build-only GitHub Actions CI workflow
+- Terraform infrastructure folder
 
 AI note summary support is implemented through Firebase Cloud Functions and Gemini API integration, but Gemini API billing is currently disabled/skipped for cost control.
-
-A strong README helps people understand why a project is useful, what they can do with it, and how to use it. GitHub also recommends creating a README for every repository.  
-References: GitHub README docs, GitHub repository best practices.
 
 ---
 
@@ -48,13 +75,15 @@ References: GitHub README docs, GitHub repository best practices.
 
 - Email/password registration
 - Email/password login
+- Password reset email flow
 - Strong password validation
 - Confirm password validation
 - Show/hide password controls
 - Friendly authentication error messages
 - Email verification support
+- Account deletion flow with typed confirmation
 
-Firebase Authentication supports email/password sign-in for web apps.
+Firebase Authentication supports email/password accounts and password reset emails for web apps.
 
 ### Dashboard
 
@@ -114,6 +143,8 @@ Firebase Authentication supports email/password sign-in for web apps.
 - Usage overview
 - Email verification status
 - Security center
+- Logout
+- Account deletion
 - Future encrypted Vault placeholder
 
 ---
@@ -137,7 +168,7 @@ Firebase Authentication supports email/password sign-in for web apps.
 - Firebase App Check
 - Google Cloud Platform
 
-Firebase Hosting provides fast and secure hosting for web apps and is optimized for static and single-page apps.
+Firebase Hosting provides production-grade hosting for web apps and is optimized for static and single-page apps. It can deploy web apps to a global CDN with the Firebase CLI.
 
 ### Infrastructure / DevOps
 
@@ -146,6 +177,7 @@ Firebase Hosting provides fast and secure hosting for web apps and is optimized 
 - Firebase CLI
 - Google Cloud CLI
 - Git / GitHub
+- GitHub Actions
 
 ---
 
@@ -175,3 +207,4 @@ Firebase Hosting
     +--> Firebase Cloud Functions
             - AI note summary callable function
             - Gemini API integration
+            - Secret Manager integration
