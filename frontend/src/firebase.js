@@ -22,6 +22,10 @@ if (appCheckSiteKey) {
     provider: new ReCaptchaV3Provider(appCheckSiteKey),
     isTokenAutoRefreshEnabled: true,
   });
+} else {
+  console.warn(
+    "Firebase App Check is not initialized because VITE_RECAPTCHA_SITE_KEY is missing."
+  );
 }
 
 export const auth = getAuth(app);
