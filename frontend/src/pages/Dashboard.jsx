@@ -408,6 +408,45 @@ function Dashboard({ user }) {
   const latestNotes = notes.slice(0, 3);
   const latestLinks = links.slice(0, 3);
 
+  const securityChecks = [
+    {
+      label: "Email verification",
+      status: user.emailVerified ? "Verified" : "Action needed",
+      description: user.emailVerified
+        ? "Your email address has been verified."
+        : "Verify your email address to improve account trust.",
+      tone: user.emailVerified ? "success" : "warning",
+    },
+    {
+      label: "App Check",
+      status: "Monitoring",
+      description:
+        "App Check is connected and collecting request metrics before enforcement.",
+      tone: "info",
+    },
+    {
+      label: "User data isolation",
+      status: "Enabled",
+      description:
+        "Firestore and Storage rules keep each user's data under their own user ID.",
+      tone: "success",
+    },
+    {
+      label: "Safer uploads",
+      status: "Enabled",
+      description:
+        "Secret, config, and code file types are blocked from normal document uploads.",
+      tone: "success",
+    },
+    {
+      label: "Multi-factor authentication",
+      status: "Planned",
+      description:
+        "Future upgrade for stronger account protection using an additional sign-in factor.",
+      tone: "info",
+    },
+  ];
+
   async function handleLogout() {
     await signOut(auth);
   }
@@ -2007,31 +2046,31 @@ function Dashboard({ user }) {
               </article>
             </section>
 
-            <section className="settings-card">
-              <p className="eyebrow">Security</p>
-              <h2>Current protection</h2>
-
-              <div className="security-list">
+            <section className="settings-card security-center-card">
+              <div className="section-title">
                 <div>
-                  <strong>Authentication required</strong>
+                  <p className="eyebrow">Security center</p>
+                  <h2>Protection status</h2>
                   <p className="muted">
-                    Users must log in before accessing their files, notes, and links.
+                    A quick overview of the security layers protecting your
+                    LifeHub workspace.
                   </p>
                 </div>
+              </div>
 
-                <div>
-                  <strong>User-isolated data</strong>
-                  <p className="muted">
-                    Firestore and Storage rules isolate each user under their own user ID.
-                  </p>
-                </div>
+              <div className="security-check-list">
+                {securityChecks.map((check) => (
+                  <article className="security-check-item" key={check.label}>
+                    <div>
+                      <strong>{check.label}</strong>
+                      <p className="muted">{check.description}</p>
+                    </div>
 
-                <div>
-                  <strong>Safer document uploads</strong>
-                  <p className="muted">
-                    Secret/config/code file types are blocked in LifeHub Documents.
-                  </p>
-                </div>
+                    <span className={`security-badge ${check.tone}`}>
+                      {check.status}
+                    </span>
+                  </article>
+                ))}
               </div>
             </section>
 
