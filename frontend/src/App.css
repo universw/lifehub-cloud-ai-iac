@@ -955,3 +955,46 @@ select {
     word-break: break-word;
   }
 }
+.edit-form {
+  width: 100%;
+  display: grid;
+  gap: 14px;
+}
+
+.edit-form textarea {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font: inherit;
+  color: #0f172a;
+  background: #ffffff;
+  resize: vertical;
+}
+
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.action-row button {
+  width: auto;
+}
+
+.note-item .action-row,
+.link-item .action-row {
+  justify-content: flex-end;
+}
+
+@media (max-width: 700px) {
+  .action-row {
+    width: 100%;
+  }
+
+  .action-row button {
+    width: 100%;
+  }
+}

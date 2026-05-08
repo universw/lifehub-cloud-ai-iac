@@ -9,6 +9,7 @@ import {
   orderBy,
   query,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 import {
   deleteObject,
@@ -133,16 +134,27 @@ function Dashboard({ user }) {
   const [noteTitle, setNoteTitle] = useState("");
   const [noteBody, setNoteBody] = useState("");
 
+  const [editingNoteId, setEditingNoteId] = useState("");
+  const [editingNoteTitle, setEditingNoteTitle] = useState("");
+  const [editingNoteBody, setEditingNoteBody] = useState("");
+
   const [linkTitle, setLinkTitle] = useState("");
   const [linkUrl, setLinkUrl] = useState("");
   const [linkCategory, setLinkCategory] = useState("General");
   const [linkSearchTerm, setLinkSearchTerm] = useState("");
   const [linkCategoryFilter, setLinkCategoryFilter] = useState("All");
 
+  const [editingLinkId, setEditingLinkId] = useState("");
+  const [editingLinkTitle, setEditingLinkTitle] = useState("");
+  const [editingLinkUrl, setEditingLinkUrl] = useState("");
+  const [editingLinkCategory, setEditingLinkCategory] = useState("General");
+
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
   const [savingLink, setSavingLink] = useState(false);
+  const [updatingNote, setUpdatingNote] = useState(false);
+  const [updatingLink, setUpdatingLink] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState("");
   const [deletingNoteId, setDeletingNoteId] = useState("");
   const [deletingLinkId, setDeletingLinkId] = useState("");
@@ -403,6 +415,50 @@ function Dashboard({ user }) {
     }
   }
 
+  function startEditNote(note) {
+    setEditingNoteId(note.id);
+    setEditingNoteTitle(note.title || "");
+    setEditingNoteBody(note.body || "");
+    setError("");
+  }
+
+  function cancelEditNote() {
+    setEditingNoteId("");
+    setEditingNoteTitle("");
+    setEditingNoteBody("");
+  }
+
+  async function handleUpdateNote(event) {
+    event.preventDefault();
+
+    if (!editingNoteTitle.trim()) {
+      setError("Please enter a note title.");
+      return;
+    }
+
+    if (!editingNoteBody.trim()) {
+      setError("Please enter note content.");
+      return;
+    }
+
+    setError("");
+    setUpdatingNote(true);
+
+    try {
+      await updateDoc(doc(db, "users", user.uid, "notes", editingNoteId), {
+        title: editingNoteTitle.trim(),
+        body: editingNoteBody.trim(),
+        updatedAt: serverTimestamp(),
+      });
+
+      cancelEditNote();
+    } catch (err) {
+      setError(err.message || "Failed to update note.");
+    } finally {
+      setUpdatingNote(false);
+    }
+  }
+
   async function handleDeleteNote(note) {
     const confirmed = window.confirm(`Delete note "${note.title}"?`);
 
@@ -458,6 +514,60 @@ function Dashboard({ user }) {
       setError(err.message || "Failed to save link.");
     } finally {
       setSavingLink(false);
+    }
+  }
+
+  function startEditLink(link) {
+    setEditingLinkId(link.id);
+    setEditingLinkTitle(link.title || "");
+    setEditingLinkUrl(link.url || "");
+    setEditingLinkCategory(link.category || "General");
+    setError("");
+  }
+
+  function cancelEditLink() {
+    setEditingLinkId("");
+    setEditingLinkTitle("");
+    setEditingLinkUrl("");
+    setEditingLinkCategory("General");
+  }
+
+  async function handleUpdateLink(event) {
+    event.preventDefault();
+
+    if (!editingLinkTitle.trim()) {
+      setError("Please enter a link title.");
+      return;
+    }
+
+    if (!editingLinkUrl.trim()) {
+      setError("Please enter a link URL.");
+      return;
+    }
+
+    if (!isValidUrl(editingLinkUrl)) {
+      setError("Please enter a valid URL.");
+      return;
+    }
+
+    setError("");
+    setUpdatingLink(true);
+
+    try {
+      const normalizedUrl = normalizeUrl(editingLinkUrl);
+
+      await updateDoc(doc(db, "users", user.uid, "links", editingLinkId), {
+        title: editingLinkTitle.trim(),
+        url: normalizedUrl,
+        category: editingLinkCategory,
+        updatedAt: serverTimestamp(),
+      });
+
+      cancelEditLink();
+    } catch (err) {
+      setError(err.message || "Failed to update link.");
+    } finally {
+      setUpdatingLink(false);
     }
   }
 
@@ -886,19 +996,73 @@ function Dashboard({ user }) {
               <div className="note-list">
                 {notes.map((note) => (
                   <article className="note-item" key={note.id}>
-                    <div>
-                      <h3>{note.title}</h3>
-                      <p>{note.body}</p>
-                    </div>
+                    {editingNoteId === note.id ? (
+                      <form className="edit-form" onSubmit={handleUpdateNote}>
+                        <label>
+                          Edit title
+                          <input
+                            type="text"
+                            value={editingNoteTitle}
+                            onChange={(event) =>
+                              setEditingNoteTitle(event.target.value)
+                            }
+                          />
+                        </label>
 
-                    <button
-                      type="button"
-                      className="danger-button"
-                      disabled={deletingNoteId === note.id}
-                      onClick={() => handleDeleteNote(note)}
-                    >
-                      {deletingNoteId === note.id ? "Deleting..." : "Delete"}
-                    </button>
+                        <label>
+                          Edit content
+                          <textarea
+                            value={editingNoteBody}
+                            onChange={(event) =>
+                              setEditingNoteBody(event.target.value)
+                            }
+                            rows="5"
+                          />
+                        </label>
+
+                        <div className="action-row">
+                          <button type="submit" disabled={updatingNote}>
+                            {updatingNote ? "Saving..." : "Save changes"}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={cancelEditNote}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : (
+                      <>
+                        <div>
+                          <h3>{note.title}</h3>
+                          <p>{note.body}</p>
+                        </div>
+
+                        <div className="action-row">
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            onClick={() => startEditNote(note)}
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            className="danger-button"
+                            disabled={deletingNoteId === note.id}
+                            onClick={() => handleDeleteNote(note)}
+                          >
+                            {deletingNoteId === note.id
+                              ? "Deleting..."
+                              : "Delete"}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </article>
                 ))}
               </div>
@@ -995,20 +1159,88 @@ function Dashboard({ user }) {
                 <div className="link-list">
                   {filteredLinks.map((link) => (
                     <article className="link-item" key={link.id}>
-                      <a href={link.url} target="_blank" rel="noreferrer">
-                        <strong>{link.title}</strong>
-                        <span>{getDisplayDomain(link.url)}</span>
-                        <p>{link.category}</p>
-                      </a>
+                      {editingLinkId === link.id ? (
+                        <form className="edit-form" onSubmit={handleUpdateLink}>
+                          <label>
+                            Edit title
+                            <input
+                              type="text"
+                              value={editingLinkTitle}
+                              onChange={(event) =>
+                                setEditingLinkTitle(event.target.value)
+                              }
+                            />
+                          </label>
 
-                      <button
-                        type="button"
-                        className="danger-button"
-                        disabled={deletingLinkId === link.id}
-                        onClick={() => handleDeleteLink(link)}
-                      >
-                        {deletingLinkId === link.id ? "Deleting..." : "Delete"}
-                      </button>
+                          <label>
+                            Edit URL
+                            <input
+                              type="url"
+                              value={editingLinkUrl}
+                              onChange={(event) =>
+                                setEditingLinkUrl(event.target.value)
+                              }
+                            />
+                          </label>
+
+                          <label>
+                            Edit category
+                            <select
+                              value={editingLinkCategory}
+                              onChange={(event) =>
+                                setEditingLinkCategory(event.target.value)
+                              }
+                            >
+                              {linkCategories.map((item) => (
+                                <option key={item}>{item}</option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <div className="action-row">
+                            <button type="submit" disabled={updatingLink}>
+                              {updatingLink ? "Saving..." : "Save changes"}
+                            </button>
+
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={cancelEditLink}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </form>
+                      ) : (
+                        <>
+                          <a href={link.url} target="_blank" rel="noreferrer">
+                            <strong>{link.title}</strong>
+                            <span>{getDisplayDomain(link.url)}</span>
+                            <p>{link.category}</p>
+                          </a>
+
+                          <div className="action-row">
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() => startEditLink(link)}
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              className="danger-button"
+                              disabled={deletingLinkId === link.id}
+                              onClick={() => handleDeleteLink(link)}
+                            >
+                              {deletingLinkId === link.id
+                                ? "Deleting..."
+                                : "Delete"}
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </article>
                   ))}
                 </div>
