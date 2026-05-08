@@ -1023,3 +1023,47 @@ select {
     width: 100%;
   }
 }
+.important-overview {
+  margin-bottom: 24px;
+}
+
+.important-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.important-grid h3 {
+  margin: 0 0 12px;
+  color: #0f172a;
+}
+
+.important-button {
+  border: 1px solid #facc15;
+  background: #fefce8;
+  color: #854d0e;
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.important-button:hover {
+  background: #fef9c3;
+}
+
+.important-button.active {
+  background: #facc15;
+  color: #422006;
+}
+
+.important-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .important-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -181,6 +181,7 @@ function Dashboard({ user }) {
   const [savingProfile, setSavingProfile] = useState(false);
   const [updatingNote, setUpdatingNote] = useState(false);
   const [updatingLink, setUpdatingLink] = useState(false);
+  const [updatingImportantId, setUpdatingImportantId] = useState("");
   const [deletingFileId, setDeletingFileId] = useState("");
   const [deletingNoteId, setDeletingNoteId] = useState("");
   const [deletingLinkId, setDeletingLinkId] = useState("");
@@ -304,6 +305,12 @@ function Dashboard({ user }) {
     return total + (file.fileSize || 0);
   }, 0);
 
+  const importantFiles = files.filter((file) => file.isImportant);
+  const importantNotes = notes.filter((note) => note.isImportant);
+  const importantLinks = links.filter((link) => link.isImportant);
+  const importantCount =
+    importantFiles.length + importantNotes.length + importantLinks.length;
+
   const latestFiles = files.slice(0, 3);
   const latestNotes = notes.slice(0, 3);
   const latestLinks = links.slice(0, 3);
@@ -342,6 +349,24 @@ function Dashboard({ user }) {
       setError(err.message || "Failed to save profile.");
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  async function handleToggleImportant(collectionName, item) {
+    const importantKey = `${collectionName}-${item.id}`;
+
+    setError("");
+    setUpdatingImportantId(importantKey);
+
+    try {
+      await updateDoc(doc(db, "users", user.uid, collectionName, item.id), {
+        isImportant: !item.isImportant,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (err) {
+      setError(err.message || "Failed to update important status.");
+    } finally {
+      setUpdatingImportantId("");
     }
   }
 
@@ -430,6 +455,7 @@ function Dashboard({ user }) {
             category,
             storagePath,
             downloadURL,
+            isImportant: false,
             createdAt: serverTimestamp(),
           });
 
@@ -484,6 +510,7 @@ function Dashboard({ user }) {
       await addDoc(collection(db, "users", user.uid, "notes"), {
         title: noteTitle.trim(),
         body: noteBody.trim(),
+        isImportant: false,
         createdAt: serverTimestamp(),
       });
 
@@ -585,6 +612,7 @@ function Dashboard({ user }) {
         title: linkTitle.trim(),
         url: normalizedUrl,
         category: linkCategory,
+        isImportant: false,
         createdAt: serverTimestamp(),
       });
 
@@ -792,10 +820,100 @@ function Dashboard({ user }) {
               </article>
 
               <article className="stat-card">
+                <p className="muted">Important</p>
+                <h2>{importantCount}</h2>
+                <p className="muted">Pinned files, notes, and links.</p>
+              </article>
+
+              <article className="stat-card">
                 <p className="muted">Storage used</p>
                 <h2>{formatBytes(totalStorageBytes)}</h2>
                 <p className="muted">Total size of your uploaded files.</p>
               </article>
+            </section>
+
+            <section className="overview-card important-overview">
+              <div className="section-title">
+                <div>
+                  <h2>Important items</h2>
+                  <p className="muted">Pinned files, notes, and links you care about most</p>
+                </div>
+              </div>
+
+              {importantCount === 0 ? (
+                <p className="muted">
+                  No important items yet. Use the Mark important button on files,
+                  notes, or links.
+                </p>
+              ) : (
+                <div className="important-grid">
+                  <div>
+                    <h3>Files</h3>
+                    {importantFiles.length === 0 ? (
+                      <p className="muted">No important files.</p>
+                    ) : (
+                      <div className="compact-list">
+                        {importantFiles.slice(0, 3).map((file) => (
+                          <a
+                            href={file.downloadURL}
+                            target="_blank"
+                            rel="noreferrer"
+                            key={file.id}
+                          >
+                            <strong>★ {file.fileName}</strong>
+                            <span>
+                              {file.category} · {formatBytes(file.fileSize)}
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3>Notes</h3>
+                    {importantNotes.length === 0 ? (
+                      <p className="muted">No important notes.</p>
+                    ) : (
+                      <div className="compact-list">
+                        {importantNotes.slice(0, 3).map((note) => (
+                          <button
+                            type="button"
+                            key={note.id}
+                            onClick={() => openView("notes")}
+                          >
+                            <strong>★ {note.title}</strong>
+                            <span>{note.body.slice(0, 80)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3>Links</h3>
+                    {importantLinks.length === 0 ? (
+                      <p className="muted">No important links.</p>
+                    ) : (
+                      <div className="compact-list">
+                        {importantLinks.slice(0, 3).map((link) => (
+                          <a
+                            href={link.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            key={link.id}
+                          >
+                            <strong>★ {link.title}</strong>
+                            <span>
+                              {link.category} · {getDisplayDomain(link.url)}
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </section>
 
             <section className="overview-grid">
@@ -826,7 +944,10 @@ function Dashboard({ user }) {
                         rel="noreferrer"
                         key={file.id}
                       >
-                        <strong>{file.fileName}</strong>
+                        <strong>
+                          {file.isImportant ? "★ " : ""}
+                          {file.fileName}
+                        </strong>
                         <span>
                           {file.category} · {formatBytes(file.fileSize)} · Uploaded{" "}
                           {formatDate(file.createdAt)}
@@ -863,7 +984,10 @@ function Dashboard({ user }) {
                         key={note.id}
                         onClick={() => openView("notes")}
                       >
-                        <strong>{note.title}</strong>
+                        <strong>
+                          {note.isImportant ? "★ " : ""}
+                          {note.title}
+                        </strong>
                         <span>
                           {note.body.slice(0, 80)} · {getUpdatedOrCreatedLabel(note)}
                         </span>
@@ -900,7 +1024,10 @@ function Dashboard({ user }) {
                         rel="noreferrer"
                         key={link.id}
                       >
-                        <strong>{link.title}</strong>
+                        <strong>
+                          {link.isImportant ? "★ " : ""}
+                          {link.title}
+                        </strong>
                         <span>
                           {link.category} · {getDisplayDomain(link.url)} ·{" "}
                           {getUpdatedOrCreatedLabel(link)}
@@ -1020,7 +1147,10 @@ function Dashboard({ user }) {
                         rel="noreferrer"
                       >
                         <div>
-                          <strong>{file.fileName}</strong>
+                          <strong>
+                            {file.isImportant ? "★ " : ""}
+                            {file.fileName}
+                          </strong>
                           <p className="muted">
                             {file.category} · {formatBytes(file.fileSize)}
                           </p>
@@ -1032,14 +1162,29 @@ function Dashboard({ user }) {
                         <span>Open</span>
                       </a>
 
-                      <button
-                        type="button"
-                        className="danger-button"
-                        disabled={deletingFileId === file.id}
-                        onClick={() => handleDeleteFile(file)}
-                      >
-                        {deletingFileId === file.id ? "Deleting..." : "Delete"}
-                      </button>
+                      <div className="action-row">
+                        <button
+                          type="button"
+                          className={
+                            file.isImportant
+                              ? "important-button active"
+                              : "important-button"
+                          }
+                          disabled={updatingImportantId === `files-${file.id}`}
+                          onClick={() => handleToggleImportant("files", file)}
+                        >
+                          {file.isImportant ? "Unmark important" : "Mark important"}
+                        </button>
+
+                        <button
+                          type="button"
+                          className="danger-button"
+                          disabled={deletingFileId === file.id}
+                          onClick={() => handleDeleteFile(file)}
+                        >
+                          {deletingFileId === file.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1130,7 +1275,10 @@ function Dashboard({ user }) {
                     ) : (
                       <>
                         <div>
-                          <h3>{note.title}</h3>
+                          <h3>
+                            {note.isImportant ? "★ " : ""}
+                            {note.title}
+                          </h3>
                           <p>{note.body}</p>
                           <p className="meta-text">
                             {getUpdatedOrCreatedLabel(note)}
@@ -1138,6 +1286,19 @@ function Dashboard({ user }) {
                         </div>
 
                         <div className="action-row">
+                          <button
+                            type="button"
+                            className={
+                              note.isImportant
+                                ? "important-button active"
+                                : "important-button"
+                            }
+                            disabled={updatingImportantId === `notes-${note.id}`}
+                            onClick={() => handleToggleImportant("notes", note)}
+                          >
+                            {note.isImportant ? "Unmark important" : "Mark important"}
+                          </button>
+
                           <button
                             type="button"
                             className="secondary-button"
@@ -1310,7 +1471,10 @@ function Dashboard({ user }) {
                       ) : (
                         <>
                           <a href={link.url} target="_blank" rel="noreferrer">
-                            <strong>{link.title}</strong>
+                            <strong>
+                              {link.isImportant ? "★ " : ""}
+                              {link.title}
+                            </strong>
                             <span>{getDisplayDomain(link.url)}</span>
                             <p>{link.category}</p>
                             <p className="meta-text">
@@ -1319,6 +1483,19 @@ function Dashboard({ user }) {
                           </a>
 
                           <div className="action-row">
+                            <button
+                              type="button"
+                              className={
+                                link.isImportant
+                                  ? "important-button active"
+                                  : "important-button"
+                              }
+                              disabled={updatingImportantId === `links-${link.id}`}
+                              onClick={() => handleToggleImportant("links", link)}
+                            >
+                              {link.isImportant ? "Unmark important" : "Mark important"}
+                            </button>
+
                             <button
                               type="button"
                               className="secondary-button"
@@ -1415,6 +1592,11 @@ function Dashboard({ user }) {
                   <div>
                     <span>Links</span>
                     <strong>{links.length}</strong>
+                  </div>
+
+                  <div>
+                    <span>Important</span>
+                    <strong>{importantCount}</strong>
                   </div>
 
                   <div>
