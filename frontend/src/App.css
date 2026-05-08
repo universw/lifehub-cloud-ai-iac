@@ -1182,3 +1182,365 @@ select {
     grid-template-columns: 1fr;
   }
 }
+/* Premium LifeHub design system pass */
+:root {
+  --lifehub-navy: #08111f;
+  --lifehub-navy-soft: #111c31;
+  --lifehub-primary: #2563eb;
+  --lifehub-primary-dark: #1d4ed8;
+  --lifehub-purple: #7c3aed;
+  --lifehub-cyan: #06b6d4;
+  --lifehub-green: #10b981;
+  --lifehub-yellow: #facc15;
+  --lifehub-red: #ef4444;
+
+  --lifehub-bg: #f6f8ff;
+  --lifehub-bg-2: #eef6ff;
+  --lifehub-surface: rgba(255, 255, 255, 0.92);
+  --lifehub-surface-strong: #ffffff;
+  --lifehub-border: rgba(148, 163, 184, 0.24);
+  --lifehub-text: #0f172a;
+  --lifehub-muted: #64748b;
+
+  --lifehub-shadow: 0 22px 60px rgba(15, 23, 42, 0.10);
+  --lifehub-shadow-hover: 0 28px 75px rgba(37, 99, 235, 0.16);
+}
+
+/* Background depth */
+body {
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.13), transparent 32%),
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.12), transparent 30%),
+    linear-gradient(135deg, var(--lifehub-bg), var(--lifehub-bg-2));
+  color: var(--lifehub-text);
+}
+
+.dashboard-page {
+  background:
+    radial-gradient(circle at 72% 8%, rgba(6, 182, 212, 0.13), transparent 28%),
+    radial-gradient(circle at 40% 38%, rgba(37, 99, 235, 0.08), transparent 34%);
+}
+
+/* Sidebar premium style */
+.sidebar {
+  background:
+    linear-gradient(180deg, #07101f 0%, #0b1426 55%, #111827 100%);
+  box-shadow: 16px 0 50px rgba(15, 23, 42, 0.14);
+}
+
+.sidebar .eyebrow {
+  color: #93c5fd;
+  letter-spacing: 0.14em;
+}
+
+.sidebar h2 {
+  color: #ffffff;
+}
+
+.nav-item {
+  color: #cbd5e1;
+  transition:
+    transform 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.nav-item:hover {
+  transform: translateX(4px);
+  background: rgba(96, 165, 250, 0.12);
+  color: #ffffff;
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, var(--lifehub-primary), var(--lifehub-purple));
+  color: #ffffff;
+  box-shadow: 0 16px 35px rgba(37, 99, 235, 0.3);
+}
+
+.logout-button {
+  background: rgba(148, 163, 184, 0.18);
+  border: 1px solid rgba(226, 232, 240, 0.12);
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.logout-button:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-2px);
+}
+
+/* Header polish */
+.dashboard-header {
+  align-items: center;
+}
+
+.dashboard-header .eyebrow {
+  color: var(--lifehub-primary);
+  letter-spacing: 0.16em;
+}
+
+.dashboard-header h1 {
+  color: var(--lifehub-text);
+  letter-spacing: -0.04em;
+}
+
+.dashboard-header .muted {
+  max-width: 560px;
+}
+
+.profile-pill {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(239, 246, 255, 0.9));
+  border: 1px solid rgba(191, 219, 254, 0.55);
+  box-shadow: var(--lifehub-shadow);
+}
+
+.profile-pill span {
+  background: linear-gradient(135deg, var(--lifehub-primary), var(--lifehub-purple));
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.28);
+}
+
+/* Card system */
+.stat-card,
+.overview-card,
+.quick-actions-card,
+.upload-card,
+.files-card,
+.notes-card,
+.links-card,
+.settings-card,
+.empty-product-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.93));
+  border: 1px solid var(--lifehub-border);
+  box-shadow: var(--lifehub-shadow);
+  backdrop-filter: blur(16px);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.stat-card:hover,
+.overview-card:hover,
+.quick-actions-card:hover,
+.upload-card:hover,
+.files-card:hover,
+.notes-card:hover,
+.links-card:hover,
+.settings-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--lifehub-shadow-hover);
+  border-color: rgba(96, 165, 250, 0.42);
+}
+
+/* Stat cards: add subtle colored top accents */
+.stat-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 5px;
+  background: linear-gradient(90deg, var(--lifehub-primary), var(--lifehub-cyan));
+}
+
+.stat-card:nth-child(2)::before {
+  background: linear-gradient(90deg, var(--lifehub-purple), #ec4899);
+}
+
+.stat-card:nth-child(3)::before {
+  background: linear-gradient(90deg, var(--lifehub-cyan), #22c55e);
+}
+
+.stat-card:nth-child(4)::before {
+  background: linear-gradient(90deg, var(--lifehub-yellow), #f97316);
+}
+
+.stat-card:nth-child(5)::before {
+  background: linear-gradient(90deg, #14b8a6, var(--lifehub-primary));
+}
+
+.stat-card:nth-child(6)::before {
+  background: linear-gradient(90deg, #64748b, var(--lifehub-purple));
+}
+
+.stat-card h2 {
+  color: var(--lifehub-text);
+  letter-spacing: -0.04em;
+}
+
+/* Buttons */
+button,
+.secondary-button,
+.upload-form button,
+.note-form button,
+.link-form button,
+.profile-form button {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.upload-form button,
+.note-form button,
+.link-form button,
+.profile-form button {
+  background: linear-gradient(135deg, var(--lifehub-primary), var(--lifehub-purple));
+  box-shadow: 0 14px 32px rgba(37, 99, 235, 0.25);
+}
+
+.upload-form button:hover,
+.note-form button:hover,
+.link-form button:hover,
+.profile-form button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 42px rgba(37, 99, 235, 0.34);
+}
+
+.secondary-button {
+  background: #eff6ff;
+  color: var(--lifehub-primary-dark);
+  border: 1px solid #bfdbfe;
+}
+
+.secondary-button:hover {
+  background: #dbeafe;
+  transform: translateY(-2px);
+}
+
+.danger-button:hover {
+  transform: translateY(-2px);
+}
+
+/* Quick actions become more colorful */
+.quick-actions-card {
+  background:
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.12), transparent 34%),
+    linear-gradient(135deg, #ffffff, #eff6ff);
+}
+
+.quick-actions-grid button {
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  border: 1px solid #dbeafe;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+}
+
+.quick-actions-grid button:hover {
+  background: linear-gradient(135deg, #eff6ff, #f5f3ff);
+  transform: translateY(-3px);
+  box-shadow: 0 18px 45px rgba(37, 99, 235, 0.14);
+}
+
+/* Activity timeline feel */
+.activity-card {
+  background:
+    radial-gradient(circle at top left, rgba(6, 182, 212, 0.1), transparent 30%),
+    linear-gradient(135deg, #ffffff, #f8fafc);
+}
+
+.activity-item {
+  position: relative;
+  background: rgba(255, 255, 255, 0.82);
+  border-color: #dbeafe;
+}
+
+.activity-item > span {
+  background: linear-gradient(135deg, #dbeafe, #cffafe);
+  color: #075985;
+}
+
+/* Important section */
+.important-overview {
+  background:
+    radial-gradient(circle at top right, rgba(250, 204, 21, 0.18), transparent 34%),
+    linear-gradient(135deg, #ffffff, #fffbeb);
+}
+
+.important-button {
+  box-shadow: 0 10px 24px rgba(250, 204, 21, 0.16);
+}
+
+.important-button:hover {
+  transform: translateY(-2px);
+}
+
+/* Inputs */
+input,
+select,
+textarea {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--lifehub-primary);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+  background: #ffffff;
+}
+
+/* Compact lists */
+.compact-list a,
+.compact-list button,
+.file-row,
+.note-item,
+.link-item {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.compact-list a:hover,
+.compact-list button:hover,
+.file-row:hover,
+.note-item:hover,
+.link-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(96, 165, 250, 0.45);
+  box-shadow: 0 14px 35px rgba(15, 23, 42, 0.08);
+}
+
+/* Empty states */
+.empty-state {
+  background:
+    linear-gradient(135deg, rgba(248, 250, 252, 0.9), rgba(239, 246, 255, 0.9));
+  border-color: #bfdbfe;
+}
+
+/* Better typography rhythm */
+h1,
+h2,
+h3,
+strong {
+  letter-spacing: -0.02em;
+}
+
+.muted,
+.meta-text {
+  color: var(--lifehub-muted);
+}
+
+/* Accessibility: reduce animation for users who request it */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
