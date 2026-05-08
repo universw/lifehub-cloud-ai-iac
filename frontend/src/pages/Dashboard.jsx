@@ -42,6 +42,17 @@ const linkCategories = [
   "Travel",
 ];
 
+const activityTypes = [
+  "All",
+  "file",
+  "note",
+  "link",
+  "ai",
+  "account",
+  "profile",
+  "security",
+];
+
 const allowedExtensions = [
   ".pdf",
   ".png",
@@ -211,6 +222,9 @@ function Dashboard({ user }) {
   const [editingLinkUrl, setEditingLinkUrl] = useState("");
   const [editingLinkCategory, setEditingLinkCategory] = useState("General");
 
+  const [activitySearchTerm, setActivitySearchTerm] = useState("");
+  const [activityTypeFilter, setActivityTypeFilter] = useState("All");
+
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [savingNote, setSavingNote] = useState(false);
@@ -321,7 +335,7 @@ function Dashboard({ user }) {
     const activityQuery = query(
       activityRef,
       orderBy("createdAt", "desc"),
-      limit(10)
+      limit(50)
     );
 
     const unsubscribe = onSnapshot(
@@ -397,6 +411,24 @@ function Dashboard({ user }) {
     "title"
   );
 
+  const filteredActivities = activities.filter((activity) => {
+    const itemType = activity.itemType || "general";
+    const action = activity.action || "";
+    const message = activity.message || "";
+
+    const searchValue = activitySearchTerm.toLowerCase();
+
+    const matchesSearch =
+      itemType.toLowerCase().includes(searchValue) ||
+      action.toLowerCase().includes(searchValue) ||
+      message.toLowerCase().includes(searchValue);
+
+    const matchesType =
+      activityTypeFilter === "All" || itemType === activityTypeFilter;
+
+    return matchesSearch && matchesType;
+  });
+
   const totalStorageBytes = files.reduce((total, file) => {
     return total + (file.fileSize || 0);
   }, 0);
@@ -461,7 +493,9 @@ function Dashboard({ user }) {
 
     try {
       await sendEmailVerification(user);
-      setSuccessMessage("Verification email sent. Please check your inbox or spam folder.");
+      setSuccessMessage(
+        "Verification email sent. Please check your inbox or spam folder."
+      );
 
       await logActivity(
         "verification_email_sent",
@@ -515,7 +549,11 @@ function Dashboard({ user }) {
         { merge: true }
       );
 
-      await logActivity("profile_updated", "profile", "Updated profile settings");
+      await logActivity(
+        "profile_updated",
+        "profile",
+        "Updated profile settings"
+      );
     } catch (err) {
       setError(err.message || "Failed to save profile.");
     } finally {
@@ -538,9 +576,13 @@ function Dashboard({ user }) {
       });
 
       await logActivity(
-        nextImportantState ? "item_marked_important" : "item_unmarked_important",
+        nextImportantState
+          ? "item_marked_important"
+          : "item_unmarked_important",
         collectionName.slice(0, -1),
-        nextImportantState ? "Marked an item as important" : "Unmarked an item as important"
+        nextImportantState
+          ? "Marked an item as important"
+          : "Unmarked an item as important"
       );
     } catch (err) {
       setError(err.message || "Failed to update important status.");
@@ -581,7 +623,9 @@ function Dashboard({ user }) {
     }
 
     if (!allowedExtensions.includes(extension)) {
-      setError(`Unsupported file type. Allowed: ${allowedExtensions.join(", ")}`);
+      setError(
+        `Unsupported file type. Allowed: ${allowedExtensions.join(", ")}`
+      );
       setSelectedFile(null);
       event.target.value = "";
       return;
@@ -931,7 +975,9 @@ function Dashboard({ user }) {
 
         <nav className="sidebar-nav">
           <button
-            className={activeView === "dashboard" ? "nav-item active" : "nav-item"}
+            className={
+              activeView === "dashboard" ? "nav-item active" : "nav-item"
+            }
             type="button"
             onClick={() => openView("dashboard")}
           >
@@ -967,7 +1013,20 @@ function Dashboard({ user }) {
           </button>
 
           <button
-            className={activeView === "settings" ? "nav-item active" : "nav-item"}
+            className={
+              activeView === "activity" ? "nav-item active" : "nav-item"
+            }
+            type="button"
+            onClick={() => openView("activity")}
+          >
+            <span>📊</span>
+            Activity
+          </button>
+
+          <button
+            className={
+              activeView === "settings" ? "nav-item active" : "nav-item"
+            }
             type="button"
             onClick={() => openView("settings")}
           >
@@ -985,7 +1044,8 @@ function Dashboard({ user }) {
         <header className="dashboard-header">
           <div>
             <p className="eyebrow">
-              Welcome back{profile?.displayName ? `, ${profile.displayName}` : ""}
+              Welcome back
+              {profile?.displayName ? `, ${profile.displayName}` : ""}
             </p>
             <h1>
               {activeView === "dashboard" &&
@@ -993,6 +1053,7 @@ function Dashboard({ user }) {
               {activeView === "files" && "Files"}
               {activeView === "notes" && "Notes"}
               {activeView === "links" && "Links"}
+              {activeView === "activity" && "Activity"}
               {activeView === "settings" && "Settings"}
             </h1>
             <p className="muted">
@@ -1004,6 +1065,8 @@ function Dashboard({ user }) {
                 "Save private notes, reminders, checklists, and personal records."}
               {activeView === "links" &&
                 "Save useful websites, tools, school resources, and portfolio references."}
+              {activeView === "activity" &&
+                "Review your safe audit history across files, notes, links, account actions, and AI events."}
               {activeView === "settings" &&
                 "Manage your account, usage, security, and LifeHub preferences."}
             </p>
@@ -1011,7 +1074,9 @@ function Dashboard({ user }) {
 
           <div className="profile-pill">
             <span>
-              {(profile?.displayName || user.email || "U").charAt(0).toUpperCase()}
+              {(profile?.displayName || user.email || "U")
+                .charAt(0)
+                .toUpperCase()}
             </span>
             <div>
               <p className="profile-label">Signed in as</p>
@@ -1028,8 +1093,8 @@ function Dashboard({ user }) {
             <div>
               <strong>Email not verified</strong>
               <p>
-                Verify your email address to improve account trust and prepare your
-                LifeHub workspace for future security features.
+                Verify your email address to improve account trust and prepare
+                your LifeHub workspace for future security features.
               </p>
             </div>
 
@@ -1108,6 +1173,11 @@ function Dashboard({ user }) {
                   <strong>🔗 Save link</strong>
                   <span>Bookmark a useful resource</span>
                 </button>
+
+                <button type="button" onClick={() => openView("activity")}>
+                  <strong>📊 Review activity</strong>
+                  <span>Check your safe audit log</span>
+                </button>
               </div>
             </section>
 
@@ -1119,6 +1189,14 @@ function Dashboard({ user }) {
                     Safe audit log. Only generic activity is stored.
                   </p>
                 </div>
+
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => openView("activity")}
+                >
+                  View all
+                </button>
               </div>
 
               {activities.length === 0 ? (
@@ -1131,12 +1209,14 @@ function Dashboard({ user }) {
                 </div>
               ) : (
                 <div className="activity-list">
-                  {activities.map((activity) => (
+                  {activities.slice(0, 10).map((activity) => (
                     <div className="activity-item" key={activity.id}>
                       <span>{activity.itemType}</span>
                       <div>
                         <strong>{activity.message}</strong>
-                        <p className="meta-text">{formatDate(activity.createdAt)}</p>
+                        <p className="meta-text">
+                          {formatDate(activity.createdAt)}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -1148,7 +1228,9 @@ function Dashboard({ user }) {
               <div className="section-title">
                 <div>
                   <h2>Important items</h2>
-                  <p className="muted">Pinned files, notes, and links you care about most</p>
+                  <p className="muted">
+                    Pinned files, notes, and links you care about most
+                  </p>
                 </div>
               </div>
 
@@ -1156,8 +1238,8 @@ function Dashboard({ user }) {
                 <div className="empty-state">
                   <strong>No important items yet</strong>
                   <p className="muted">
-                    Use the Mark important button on files, notes, or links to pin
-                    the things you care about most.
+                    Use the Mark important button on files, notes, or links to
+                    pin the things you care about most.
                   </p>
                 </div>
               ) : (
@@ -1264,8 +1346,8 @@ function Dashboard({ user }) {
                           {file.fileName}
                         </strong>
                         <span>
-                          {file.category} · {formatBytes(file.fileSize)} · Uploaded{" "}
-                          {formatDate(file.createdAt)}
+                          {file.category} · {formatBytes(file.fileSize)} ·
+                          Uploaded {formatDate(file.createdAt)}
                         </span>
                       </a>
                     ))}
@@ -1304,7 +1386,8 @@ function Dashboard({ user }) {
                           {note.title}
                         </strong>
                         <span>
-                          {note.body.slice(0, 80)} · {getUpdatedOrCreatedLabel(note)}
+                          {note.body.slice(0, 80)} ·{" "}
+                          {getUpdatedOrCreatedLabel(note)}
                         </span>
                       </button>
                     ))}
@@ -1397,8 +1480,8 @@ function Dashboard({ user }) {
 
                 {selectedFile && (
                   <p className="muted">
-                    Selected: <strong>{selectedFile.name}</strong>{" "}
-                    ({formatBytes(selectedFile.size)})
+                    Selected: <strong>{selectedFile.name}</strong> (
+                    {formatBytes(selectedFile.size)})
                   </p>
                 )}
 
@@ -1451,7 +1534,11 @@ function Dashboard({ user }) {
                 <div className="filter-chip-row">
                   <button
                     type="button"
-                    className={categoryFilter === "All" ? "filter-chip active" : "filter-chip"}
+                    className={
+                      categoryFilter === "All"
+                        ? "filter-chip active"
+                        : "filter-chip"
+                    }
                     onClick={() => setCategoryFilter("All")}
                   >
                     All
@@ -1461,7 +1548,11 @@ function Dashboard({ user }) {
                     <button
                       type="button"
                       key={item}
-                      className={categoryFilter === item ? "filter-chip active" : "filter-chip"}
+                      className={
+                        categoryFilter === item
+                          ? "filter-chip active"
+                          : "filter-chip"
+                      }
                       onClick={() => setCategoryFilter(item)}
                     >
                       {item}
@@ -1470,7 +1561,11 @@ function Dashboard({ user }) {
 
                   <button
                     type="button"
-                    className={fileImportantOnly ? "filter-chip active important-filter" : "filter-chip important-filter"}
+                    className={
+                      fileImportantOnly
+                        ? "filter-chip active important-filter"
+                        : "filter-chip important-filter"
+                    }
                     onClick={() => setFileImportantOnly((current) => !current)}
                   >
                     ★ Important only
@@ -1482,16 +1577,16 @@ function Dashboard({ user }) {
                 <div className="empty-state">
                   <strong>No files uploaded yet</strong>
                   <p className="muted">
-                    Upload documents, images, receipts, certificates, or school files
-                    to start building your LifeHub library.
+                    Upload documents, images, receipts, certificates, or school
+                    files to start building your LifeHub library.
                   </p>
                 </div>
               ) : filteredFiles.length === 0 ? (
                 <div className="empty-state">
                   <strong>No files match your controls</strong>
                   <p className="muted">
-                    Try changing the search text, category chip, important filter,
-                    or sort option.
+                    Try changing the search text, category chip, important
+                    filter, or sort option.
                   </p>
                 </div>
               ) : (
@@ -1531,7 +1626,9 @@ function Dashboard({ user }) {
                           disabled={updatingImportantId === `files-${file.id}`}
                           onClick={() => handleToggleImportant("files", file)}
                         >
-                          {file.isImportant ? "Unmark important" : "Mark important"}
+                          {file.isImportant
+                            ? "Unmark important"
+                            : "Mark important"}
                         </button>
 
                         <button
@@ -1540,7 +1637,9 @@ function Dashboard({ user }) {
                           disabled={deletingFileId === file.id}
                           onClick={() => handleDeleteFile(file)}
                         >
-                          {deletingFileId === file.id ? "Deleting..." : "Delete"}
+                          {deletingFileId === file.id
+                            ? "Deleting..."
+                            : "Delete"}
                         </button>
                       </div>
                     </div>
@@ -1610,7 +1709,11 @@ function Dashboard({ user }) {
               <div className="filter-chip-row">
                 <button
                   type="button"
-                  className={noteImportantOnly ? "filter-chip active important-filter" : "filter-chip important-filter"}
+                  className={
+                    noteImportantOnly
+                      ? "filter-chip active important-filter"
+                      : "filter-chip important-filter"
+                  }
                   onClick={() => setNoteImportantOnly((current) => !current)}
                 >
                   ★ Important only
@@ -1699,7 +1802,9 @@ function Dashboard({ user }) {
                             disabled={updatingImportantId === `notes-${note.id}`}
                             onClick={() => handleToggleImportant("notes", note)}
                           >
-                            {note.isImportant ? "Unmark important" : "Mark important"}
+                            {note.isImportant
+                              ? "Unmark important"
+                              : "Mark important"}
                           </button>
 
                           <button
@@ -1739,11 +1844,30 @@ function Dashboard({ user }) {
                             <p>{aiSummaries[note.id].summary}</p>
 
                             {aiSummaries[note.id].actionItems?.length > 0 && (
-                              <ul>
-                                {aiSummaries[note.id].actionItems.map((item) => (
-                                  <li key={item}>{item}</li>
-                                ))}
-                              </ul>
+                              <>
+                                <strong>Action items</strong>
+                                <ul>
+                                  {aiSummaries[note.id].actionItems.map(
+                                    (item) => (
+                                      <li key={item}>{item}</li>
+                                    )
+                                  )}
+                                </ul>
+                              </>
+                            )}
+
+                            {aiSummaries[note.id].importantReminders?.length >
+                              0 && (
+                              <>
+                                <strong>Important reminders</strong>
+                                <ul>
+                                  {aiSummaries[
+                                    note.id
+                                  ].importantReminders.map((item) => (
+                                    <li key={item}>{item}</li>
+                                  ))}
+                                </ul>
+                              </>
                             )}
                           </div>
                         )}
@@ -1840,7 +1964,11 @@ function Dashboard({ user }) {
                 <div className="filter-chip-row">
                   <button
                     type="button"
-                    className={linkCategoryFilter === "All" ? "filter-chip active" : "filter-chip"}
+                    className={
+                      linkCategoryFilter === "All"
+                        ? "filter-chip active"
+                        : "filter-chip"
+                    }
                     onClick={() => setLinkCategoryFilter("All")}
                   >
                     All
@@ -1850,7 +1978,11 @@ function Dashboard({ user }) {
                     <button
                       type="button"
                       key={item}
-                      className={linkCategoryFilter === item ? "filter-chip active" : "filter-chip"}
+                      className={
+                        linkCategoryFilter === item
+                          ? "filter-chip active"
+                          : "filter-chip"
+                      }
                       onClick={() => setLinkCategoryFilter(item)}
                     >
                       {item}
@@ -1859,7 +1991,11 @@ function Dashboard({ user }) {
 
                   <button
                     type="button"
-                    className={linkImportantOnly ? "filter-chip active important-filter" : "filter-chip important-filter"}
+                    className={
+                      linkImportantOnly
+                        ? "filter-chip active important-filter"
+                        : "filter-chip important-filter"
+                    }
                     onClick={() => setLinkImportantOnly((current) => !current)}
                   >
                     ★ Important only
@@ -1879,8 +2015,8 @@ function Dashboard({ user }) {
                 <div className="empty-state">
                   <strong>No links match your controls</strong>
                   <p className="muted">
-                    Try changing your search text, category chip, important filter,
-                    or sort option.
+                    Try changing your search text, category chip, important
+                    filter, or sort option.
                   </p>
                 </div>
               ) : (
@@ -1961,10 +2097,16 @@ function Dashboard({ user }) {
                                   ? "important-button active"
                                   : "important-button"
                               }
-                              disabled={updatingImportantId === `links-${link.id}`}
-                              onClick={() => handleToggleImportant("links", link)}
+                              disabled={
+                                updatingImportantId === `links-${link.id}`
+                              }
+                              onClick={() =>
+                                handleToggleImportant("links", link)
+                              }
                             >
-                              {link.isImportant ? "Unmark important" : "Mark important"}
+                              {link.isImportant
+                                ? "Unmark important"
+                                : "Mark important"}
                             </button>
 
                             <button
@@ -1994,6 +2136,90 @@ function Dashboard({ user }) {
               )}
             </section>
           </>
+        )}
+
+        {activeView === "activity" && (
+          <section className="activity-page">
+            <section className="overview-card activity-page-card">
+              <div className="section-title">
+                <div>
+                  <p className="eyebrow">Audit trail</p>
+                  <h2>Activity log</h2>
+                  <p className="muted">
+                    Showing {filteredActivities.length} of {activities.length}{" "}
+                    activity item(s). Only safe, generic activity messages are
+                    stored.
+                  </p>
+                </div>
+              </div>
+
+              <div className="library-controls">
+                <div className="file-toolbar">
+                  <input
+                    type="search"
+                    value={activitySearchTerm}
+                    onChange={(event) =>
+                      setActivitySearchTerm(event.target.value)
+                    }
+                    placeholder="Search activity..."
+                  />
+
+                  <select
+                    value={activityTypeFilter}
+                    onChange={(event) =>
+                      setActivityTypeFilter(event.target.value)
+                    }
+                  >
+                    {activityTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type === "All" ? "All activity" : type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {activities.length === 0 ? (
+                <div className="empty-state">
+                  <strong>No activity yet</strong>
+                  <p className="muted">
+                    Your LifeHub actions will appear here after you upload
+                    files, create notes, save links, update settings, or use AI.
+                  </p>
+                </div>
+              ) : filteredActivities.length === 0 ? (
+                <div className="empty-state">
+                  <strong>No activity matches your filters</strong>
+                  <p className="muted">
+                    Try changing your search text or activity type.
+                  </p>
+                </div>
+              ) : (
+                <div className="activity-timeline">
+                  {filteredActivities.map((activity) => (
+                    <article className="activity-timeline-item" key={activity.id}>
+                      <div className="activity-dot" />
+
+                      <div>
+                        <div className="activity-title-row">
+                          <strong>
+                            {activity.message || "Activity recorded"}
+                          </strong>
+                          <span>{activity.itemType || "general"}</span>
+                        </div>
+
+                        <p className="muted">
+                          {activity.action || "User action"}
+                        </p>
+
+                        <small>{formatDate(activity.createdAt)}</small>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          </section>
         )}
 
         {activeView === "settings" && (
@@ -2036,7 +2262,11 @@ function Dashboard({ user }) {
 
                 <div className="settings-row">
                   <span>Email verification</span>
-                  <strong className={user.emailVerified ? "verified-text" : "unverified-text"}>
+                  <strong
+                    className={
+                      user.emailVerified ? "verified-text" : "unverified-text"
+                    }
+                  >
                     {user.emailVerified ? "Verified" : "Not verified"}
                   </strong>
 
@@ -2047,7 +2277,9 @@ function Dashboard({ user }) {
                       disabled={sendingVerification}
                       onClick={handleSendVerificationEmail}
                     >
-                      {sendingVerification ? "Sending..." : "Send verification email"}
+                      {sendingVerification
+                        ? "Sending..."
+                        : "Send verification email"}
                     </button>
                   )}
                 </div>
@@ -2133,8 +2365,9 @@ function Dashboard({ user }) {
               <p className="eyebrow">Coming later</p>
               <h2>LifeHub Vault</h2>
               <p className="muted">
-                A future encrypted Vault will support secret files, private keys,
-                recovery codes, and sensitive documents with client-side encryption.
+                A future encrypted Vault will support secret files, private
+                keys, recovery codes, and sensitive documents with client-side
+                encryption.
               </p>
 
               <div className="vault-features">
@@ -2149,10 +2382,15 @@ function Dashboard({ user }) {
               <p className="eyebrow">Danger zone</p>
               <h2>Session</h2>
               <p className="muted">
-                Log out from this browser. Your files, notes, and links will remain saved.
+                Log out from this browser. Your files, notes, and links will
+                remain saved.
               </p>
 
-              <button type="button" className="danger-button" onClick={handleLogout}>
+              <button
+                type="button"
+                className="danger-button"
+                onClick={handleLogout}
+              >
                 Logout
               </button>
             </section>

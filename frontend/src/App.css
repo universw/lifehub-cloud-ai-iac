@@ -1737,3 +1737,75 @@ strong {
   margin-bottom: 6px;
   color: #334155;
 }
+.activity-page-card {
+  background:
+    radial-gradient(circle at top right, rgba(79, 70, 229, 0.12), transparent 34%),
+    linear-gradient(135deg, #ffffff, #f8fafc);
+}
+
+.activity-timeline {
+  display: grid;
+  gap: 18px;
+  margin-top: 24px;
+  position: relative;
+}
+
+.activity-timeline-item {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+}
+
+.activity-dot {
+  width: 14px;
+  height: 14px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.12);
+}
+
+.activity-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.activity-title-row strong {
+  color: #0f172a;
+}
+
+.activity-title-row span {
+  border-radius: 999px;
+  padding: 6px 10px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.activity-timeline-item p {
+  margin: 8px 0;
+  color: #64748b;
+}
+
+.activity-timeline-item small {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+@media (max-width: 700px) {
+  .activity-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
