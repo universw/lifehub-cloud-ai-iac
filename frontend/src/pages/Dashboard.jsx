@@ -245,6 +245,12 @@ function Dashboard({ user }) {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deletingAccount, setDeletingAccount] = useState(false);
 
+  const [backendStats, setBackendStats] = useState(null);
+  const [backendLoading, setBackendLoading] = useState(false);
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [uploadValidationResult, setUploadValidationResult] = useState(null);
+
   useEffect(() => {
     const filesRef = collection(db, "users", user.uid, "files");
     const filesQuery = query(filesRef, orderBy("createdAt", "desc"));
@@ -900,6 +906,90 @@ function Dashboard({ user }) {
       setError(err.message || "Failed to summarize note.");
     } finally {
       setSummarizingNoteId("");
+    }
+  }
+
+  async function handleRefreshBackendStats() {
+    setError("");
+    setSuccessMessage("");
+    setBackendLoading(true);
+
+    try {
+      const getWorkspaceStats = httpsCallable(functions, "getWorkspaceStats");
+      const result = await getWorkspaceStats();
+
+      setBackendStats(result.data);
+      setSuccessMessage("Backend workspace stats refreshed.");
+
+      await logActivity(
+        "backend_stats_refreshed",
+        "security",
+        "Refreshed backend workspace stats"
+      );
+    } catch (err) {
+      setError(err.message || "Failed to refresh backend stats.");
+    } finally {
+      setBackendLoading(false);
+    }
+  }
+
+  async function handleValidateSampleUpload() {
+    setError("");
+    setSuccessMessage("");
+    setUploadValidationResult(null);
+    setBackendLoading(true);
+
+    try {
+      const validateUpload = httpsCallable(functions, "validateUpload");
+      const result = await validateUpload({
+        fileName: "portfolio-demo.pdf",
+        fileSize: 1024 * 1024,
+      });
+
+      setUploadValidationResult(result.data);
+      setSuccessMessage("Sample upload validation completed.");
+
+      await logActivity(
+        "sample_upload_validated",
+        "security",
+        "Validated sample upload through backend"
+      );
+    } catch (err) {
+      setError(err.message || "Failed to validate sample upload.");
+    } finally {
+      setBackendLoading(false);
+    }
+  }
+
+  async function handleCreateSupportTicket(event) {
+    event.preventDefault();
+
+    setError("");
+    setSuccessMessage("");
+    setBackendLoading(true);
+
+    try {
+      const createSupportTicket = httpsCallable(functions, "createSupportTicket");
+      const result = await createSupportTicket({
+        subject: supportSubject,
+        message: supportMessage,
+      });
+
+      setSupportSubject("");
+      setSupportMessage("");
+      setSuccessMessage(
+        result.data?.message || "Support ticket created successfully."
+      );
+
+      await logActivity(
+        "support_ticket_created",
+        "account",
+        "Created a support ticket"
+      );
+    } catch (err) {
+      setError(err.message || "Failed to create support ticket.");
+    } finally {
+      setBackendLoading(false);
     }
   }
 
@@ -2420,6 +2510,116 @@ function Dashboard({ user }) {
                     </span>
                   </article>
                 ))}
+              </div>
+            </section>
+
+            <section className="settings-card backend-tools-card">
+              <p className="eyebrow">Cloud Functions</p>
+              <h2>Backend tools</h2>
+              <p className="muted">
+                Test secure callable backend functions connected to Firebase
+                Auth, Firestore, and Cloud Functions.
+              </p>
+
+              <div className="backend-tool-grid">
+                <div className="backend-tool-panel">
+                  <h3>Workspace stats</h3>
+                  <p className="muted">
+                    Load trusted workspace counts from the backend using
+                    Firebase Admin SDK.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleRefreshBackendStats}
+                    disabled={backendLoading}
+                  >
+                    {backendLoading ? "Loading..." : "Refresh backend stats"}
+                  </button>
+
+                  {backendStats && (
+                    <div className="backend-result-box">
+                      <span>Files: {backendStats.filesCount}</span>
+                      <span>Notes: {backendStats.notesCount}</span>
+                      <span>Links: {backendStats.linksCount}</span>
+                      <span>Activity: {backendStats.activityCount}</span>
+                      <span>Important: {backendStats.importantCount}</span>
+                      <span>
+                        Storage:{" "}
+                        {formatBytes(backendStats.totalStorageBytes || 0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="backend-tool-panel">
+                  <h3>Upload validation</h3>
+                  <p className="muted">
+                    Ask the backend to validate a safe sample file before
+                    upload.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleValidateSampleUpload}
+                    disabled={backendLoading}
+                  >
+                    {backendLoading ? "Checking..." : "Validate sample upload"}
+                  </button>
+
+                  {uploadValidationResult && (
+                    <div className="backend-result-box">
+                      <span>
+                        Result:{" "}
+                        {uploadValidationResult.allowed ? "Allowed" : "Blocked"}
+                      </span>
+                      <span>
+                        Max size:{" "}
+                        {formatBytes(
+                          uploadValidationResult.maxUploadSizeBytes || 0
+                        )}
+                      </span>
+                      {uploadValidationResult.reasons?.length > 0 && (
+                        <span>
+                          Reason: {uploadValidationResult.reasons.join(", ")}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <form
+                  className="backend-tool-panel"
+                  onSubmit={handleCreateSupportTicket}
+                >
+                  <h3>Support ticket</h3>
+                  <p className="muted">
+                    Create a user-scoped support ticket document through Cloud
+                    Functions.
+                  </p>
+
+                  <input
+                    type="text"
+                    value={supportSubject}
+                    onChange={(event) => setSupportSubject(event.target.value)}
+                    placeholder="Subject"
+                    maxLength="120"
+                    required
+                  />
+
+                  <textarea
+                    value={supportMessage}
+                    onChange={(event) => setSupportMessage(event.target.value)}
+                    placeholder="Message"
+                    maxLength="2000"
+                    rows="4"
+                    required
+                  />
+
+                  <button type="submit" disabled={backendLoading}>
+                    {backendLoading ? "Creating..." : "Create support ticket"}
+                  </button>
+                </form>
               </div>
             </section>
 
