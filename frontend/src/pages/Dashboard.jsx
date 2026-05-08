@@ -110,6 +110,14 @@ function isValidUrl(url) {
   }
 }
 
+function getDisplayDomain(url) {
+  try {
+    return new URL(url).hostname.replace("www.", "");
+  } catch {
+    return url;
+  }
+}
+
 function Dashboard({ user }) {
   const [activeView, setActiveView] = useState("dashboard");
 
@@ -551,7 +559,7 @@ function Dashboard({ user }) {
               {activeView === "links" &&
                 "Save useful websites, tools, school resources, and portfolio references."}
               {activeView === "settings" &&
-                "Manage your account and LifeHub preferences."}
+                "Manage your account, usage, security, and LifeHub preferences."}
             </p>
           </div>
 
@@ -695,7 +703,7 @@ function Dashboard({ user }) {
                       >
                         <strong>{link.title}</strong>
                         <span>
-                          {link.category} · {link.url}
+                          {link.category} · {getDisplayDomain(link.url)}
                         </span>
                       </a>
                     ))}
@@ -989,7 +997,7 @@ function Dashboard({ user }) {
                     <article className="link-item" key={link.id}>
                       <a href={link.url} target="_blank" rel="noreferrer">
                         <strong>{link.title}</strong>
-                        <span>{link.url}</span>
+                        <span>{getDisplayDomain(link.url)}</span>
                         <p>{link.category}</p>
                       </a>
 
@@ -1010,19 +1018,111 @@ function Dashboard({ user }) {
         )}
 
         {activeView === "settings" && (
-          <section className="empty-product-card">
-            <h2>Settings</h2>
-            <p className="muted">
-              Account settings, profile preferences, storage usage, and future
-              security controls will live here.
-            </p>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => openView("dashboard")}
-            >
-              Back to dashboard
-            </button>
+          <section className="settings-page">
+            <section className="settings-grid">
+              <article className="settings-card">
+                <p className="eyebrow">Account</p>
+                <h2>Profile</h2>
+
+                <div className="settings-row">
+                  <span>Email</span>
+                  <strong>{user.email}</strong>
+                </div>
+
+                <div className="settings-row">
+                  <span>User ID</span>
+                  <strong className="mono-text">{user.uid}</strong>
+                </div>
+
+                <div className="settings-row">
+                  <span>Plan</span>
+                  <strong>Free</strong>
+                </div>
+              </article>
+
+              <article className="settings-card">
+                <p className="eyebrow">Usage</p>
+                <h2>LifeHub storage</h2>
+
+                <div className="usage-grid">
+                  <div>
+                    <span>Files</span>
+                    <strong>{files.length}</strong>
+                  </div>
+
+                  <div>
+                    <span>Notes</span>
+                    <strong>{notes.length}</strong>
+                  </div>
+
+                  <div>
+                    <span>Links</span>
+                    <strong>{links.length}</strong>
+                  </div>
+
+                  <div>
+                    <span>Storage</span>
+                    <strong>{formatBytes(totalStorageBytes)}</strong>
+                  </div>
+                </div>
+              </article>
+            </section>
+
+            <section className="settings-card">
+              <p className="eyebrow">Security</p>
+              <h2>Current protection</h2>
+
+              <div className="security-list">
+                <div>
+                  <strong>Authentication required</strong>
+                  <p className="muted">
+                    Users must log in before accessing their files, notes, and links.
+                  </p>
+                </div>
+
+                <div>
+                  <strong>User-isolated data</strong>
+                  <p className="muted">
+                    Firestore and Storage rules isolate each user under their own user ID.
+                  </p>
+                </div>
+
+                <div>
+                  <strong>Safer document uploads</strong>
+                  <p className="muted">
+                    Secret/config/code file types are blocked in LifeHub Documents.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="settings-card vault-card">
+              <p className="eyebrow">Coming later</p>
+              <h2>LifeHub Vault</h2>
+              <p className="muted">
+                A future encrypted Vault will support secret files, private keys,
+                recovery codes, and sensitive documents with client-side encryption.
+              </p>
+
+              <div className="vault-features">
+                <span>Client-side encryption</span>
+                <span>Master password</span>
+                <span>Encrypted metadata</span>
+                <span>Audit history</span>
+              </div>
+            </section>
+
+            <section className="settings-card danger-zone">
+              <p className="eyebrow">Danger zone</p>
+              <h2>Session</h2>
+              <p className="muted">
+                Log out from this browser. Your files, notes, and links will remain saved.
+              </p>
+
+              <button type="button" className="danger-button" onClick={handleLogout}>
+                Logout
+              </button>
+            </section>
           </section>
         )}
       </section>
