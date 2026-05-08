@@ -89,6 +89,18 @@ function formatBytes(bytes) {
   return `${size.toFixed(1)} ${units[index]}`;
 }
 
+function formatDate(timestamp) {
+  if (!timestamp?.toDate) return "Just now";
+
+  return timestamp.toDate().toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function normalizeUrl(url) {
   const trimmedUrl = url.trim();
 
@@ -117,6 +129,14 @@ function getDisplayDomain(url) {
   } catch {
     return url;
   }
+}
+
+function getUpdatedOrCreatedLabel(item) {
+  if (item.updatedAt) {
+    return `Updated ${formatDate(item.updatedAt)}`;
+  }
+
+  return `Created ${formatDate(item.createdAt)}`;
 }
 
 function Dashboard({ user }) {
@@ -742,7 +762,8 @@ function Dashboard({ user }) {
                       >
                         <strong>{file.fileName}</strong>
                         <span>
-                          {file.category} · {formatBytes(file.fileSize)}
+                          {file.category} · {formatBytes(file.fileSize)} · Uploaded{" "}
+                          {formatDate(file.createdAt)}
                         </span>
                       </a>
                     ))}
@@ -777,7 +798,9 @@ function Dashboard({ user }) {
                         onClick={() => openView("notes")}
                       >
                         <strong>{note.title}</strong>
-                        <span>{note.body.slice(0, 80)}</span>
+                        <span>
+                          {note.body.slice(0, 80)} · {getUpdatedOrCreatedLabel(note)}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -813,7 +836,8 @@ function Dashboard({ user }) {
                       >
                         <strong>{link.title}</strong>
                         <span>
-                          {link.category} · {getDisplayDomain(link.url)}
+                          {link.category} · {getDisplayDomain(link.url)} ·{" "}
+                          {getUpdatedOrCreatedLabel(link)}
                         </span>
                       </a>
                     ))}
@@ -934,6 +958,9 @@ function Dashboard({ user }) {
                           <p className="muted">
                             {file.category} · {formatBytes(file.fileSize)}
                           </p>
+                          <p className="meta-text">
+                            Uploaded {formatDate(file.createdAt)}
+                          </p>
                         </div>
 
                         <span>Open</span>
@@ -1039,6 +1066,9 @@ function Dashboard({ user }) {
                         <div>
                           <h3>{note.title}</h3>
                           <p>{note.body}</p>
+                          <p className="meta-text">
+                            {getUpdatedOrCreatedLabel(note)}
+                          </p>
                         </div>
 
                         <div className="action-row">
@@ -1217,6 +1247,9 @@ function Dashboard({ user }) {
                             <strong>{link.title}</strong>
                             <span>{getDisplayDomain(link.url)}</span>
                             <p>{link.category}</p>
+                            <p className="meta-text">
+                              {getUpdatedOrCreatedLabel(link)}
+                            </p>
                           </a>
 
                           <div className="action-row">

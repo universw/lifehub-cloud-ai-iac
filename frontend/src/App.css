@@ -998,3 +998,9 @@ select {
     width: 100%;
   }
 }
+.meta-text {
+  margin: 6px 0 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
