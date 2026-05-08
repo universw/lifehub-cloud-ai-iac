@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { signOut } from "firebase/auth";
+import { sendEmailVerification, signOut } from "firebase/auth";
 import {
   addDoc,
   collection,
@@ -222,6 +222,8 @@ function Dashboard({ user }) {
   const [deletingNoteId, setDeletingNoteId] = useState("");
   const [deletingLinkId, setDeletingLinkId] = useState("");
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [sendingVerification, setSendingVerification] = useState(false);
 
   useEffect(() => {
     const filesRef = collection(db, "users", user.uid, "files");
@@ -408,6 +410,27 @@ function Dashboard({ user }) {
 
   async function handleLogout() {
     await signOut(auth);
+  }
+
+  async function handleSendVerificationEmail() {
+    setError("");
+    setSuccessMessage("");
+    setSendingVerification(true);
+
+    try {
+      await sendEmailVerification(user);
+      setSuccessMessage("Verification email sent. Please check your inbox or spam folder.");
+
+      await logActivity(
+        "verification_email_sent",
+        "account",
+        "Sent verification email"
+      );
+    } catch (err) {
+      setError(err.message || "Failed to send verification email.");
+    } finally {
+      setSendingVerification(false);
+    }
   }
 
   async function logActivity(action, itemType, message) {
@@ -827,6 +850,7 @@ function Dashboard({ user }) {
   function openView(viewName) {
     setActiveView(viewName);
     setError("");
+    setSuccessMessage("");
   }
 
   return (
@@ -929,6 +953,28 @@ function Dashboard({ user }) {
         </header>
 
         {error && <p className="global-error">{error}</p>}
+        {successMessage && <p className="global-success">{successMessage}</p>}
+
+        {!user.emailVerified && (
+          <section className="verification-banner">
+            <div>
+              <strong>Email not verified</strong>
+              <p>
+                Verify your email address to improve account trust and prepare your
+                LifeHub workspace for future security features.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={sendingVerification}
+              onClick={handleSendVerificationEmail}
+            >
+              {sendingVerification ? "Sending..." : "Send verification email"}
+            </button>
+          </section>
+        )}
 
         {activeView === "dashboard" && (
           <>
@@ -1892,6 +1938,24 @@ function Dashboard({ user }) {
                 <div className="settings-row">
                   <span>Email</span>
                   <strong>{user.email}</strong>
+                </div>
+
+                <div className="settings-row">
+                  <span>Email verification</span>
+                  <strong className={user.emailVerified ? "verified-text" : "unverified-text"}>
+                    {user.emailVerified ? "Verified" : "Not verified"}
+                  </strong>
+
+                  {!user.emailVerified && (
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={sendingVerification}
+                      onClick={handleSendVerificationEmail}
+                    >
+                      {sendingVerification ? "Sending..." : "Send verification email"}
+                    </button>
+                  )}
                 </div>
 
                 <div className="settings-row">
