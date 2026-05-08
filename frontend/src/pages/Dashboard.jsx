@@ -48,6 +48,8 @@ const blockedExtensions = [
   ".js",
   ".ts",
   ".json",
+  ".py",
+  ".conf",
   ".pem",
   ".key",
   ".p12",
@@ -76,15 +78,24 @@ function formatBytes(bytes) {
 }
 
 function Dashboard({ user }) {
+  const [activeView, setActiveView] = useState("dashboard");
+
   const [files, setFiles] = useState([]);
+  const [notes, setNotes] = useState([]);
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [category, setCategory] = useState("Personal");
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");
 
+  const [noteTitle, setNoteTitle] = useState("");
+  const [noteBody, setNoteBody] = useState("");
+
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [savingNote, setSavingNote] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState("");
+  const [deletingNoteId, setDeletingNoteId] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -109,6 +120,28 @@ function Dashboard({ user }) {
     return () => unsubscribe();
   }, [user.uid]);
 
+  useEffect(() => {
+    const notesRef = collection(db, "users", user.uid, "notes");
+    const notesQuery = query(notesRef, orderBy("createdAt", "desc"));
+
+    const unsubscribe = onSnapshot(
+      notesQuery,
+      (snapshot) => {
+        const nextNotes = snapshot.docs.map((docSnapshot) => ({
+          id: docSnapshot.id,
+          ...docSnapshot.data(),
+        }));
+
+        setNotes(nextNotes);
+      },
+      (snapshotError) => {
+        setError(snapshotError.message || "Failed to load notes.");
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user.uid]);
+
   const filteredFiles = files.filter((file) => {
     const fileName = file.fileName || "";
     const matchesSearch = fileName
@@ -120,6 +153,13 @@ function Dashboard({ user }) {
 
     return matchesSearch && matchesCategory;
   });
+
+  const totalStorageBytes = files.reduce((total, file) => {
+    return total + (file.fileSize || 0);
+  }, 0);
+
+  const latestFiles = files.slice(0, 3);
+  const latestNotes = notes.slice(0, 3);
 
   async function handleLogout() {
     await signOut(auth);
@@ -244,6 +284,60 @@ function Dashboard({ user }) {
     }
   }
 
+  async function handleCreateNote(event) {
+    event.preventDefault();
+
+    if (!noteTitle.trim()) {
+      setError("Please enter a note title.");
+      return;
+    }
+
+    if (!noteBody.trim()) {
+      setError("Please enter note content.");
+      return;
+    }
+
+    setError("");
+    setSavingNote(true);
+
+    try {
+      await addDoc(collection(db, "users", user.uid, "notes"), {
+        title: noteTitle.trim(),
+        body: noteBody.trim(),
+        createdAt: serverTimestamp(),
+      });
+
+      setNoteTitle("");
+      setNoteBody("");
+    } catch (err) {
+      setError(err.message || "Failed to save note.");
+    } finally {
+      setSavingNote(false);
+    }
+  }
+
+  async function handleDeleteNote(note) {
+    const confirmed = window.confirm(`Delete note "${note.title}"?`);
+
+    if (!confirmed) return;
+
+    setError("");
+    setDeletingNoteId(note.id);
+
+    try {
+      await deleteDoc(doc(db, "users", user.uid, "notes", note.id));
+    } catch (err) {
+      setError(err.message || "Failed to delete note.");
+    } finally {
+      setDeletingNoteId("");
+    }
+  }
+
+  function openView(viewName) {
+    setActiveView(viewName);
+    setError("");
+  }
+
   return (
     <main className="dashboard-page">
       <aside className="sidebar">
@@ -253,11 +347,45 @@ function Dashboard({ user }) {
         </div>
 
         <nav className="sidebar-nav">
-          <button className="nav-item active">Dashboard</button>
-          <button className="nav-item">Files</button>
-          <button className="nav-item">Notes</button>
-          <button className="nav-item">Links</button>
-          <button className="nav-item">Settings</button>
+          <button
+            className={activeView === "dashboard" ? "nav-item active" : "nav-item"}
+            type="button"
+            onClick={() => openView("dashboard")}
+          >
+            Dashboard
+          </button>
+
+          <button
+            className={activeView === "files" ? "nav-item active" : "nav-item"}
+            type="button"
+            onClick={() => openView("files")}
+          >
+            Files
+          </button>
+
+          <button
+            className={activeView === "notes" ? "nav-item active" : "nav-item"}
+            type="button"
+            onClick={() => openView("notes")}
+          >
+            Notes
+          </button>
+
+          <button
+            className={activeView === "links" ? "nav-item active" : "nav-item"}
+            type="button"
+            onClick={() => openView("links")}
+          >
+            Links
+          </button>
+
+          <button
+            className={activeView === "settings" ? "nav-item active" : "nav-item"}
+            type="button"
+            onClick={() => openView("settings")}
+          >
+            Settings
+          </button>
         </nav>
 
         <button className="logout-button" type="button" onClick={handleLogout}>
@@ -269,9 +397,24 @@ function Dashboard({ user }) {
         <header className="dashboard-header">
           <div>
             <p className="eyebrow">Welcome back</p>
-            <h1>Your LifeHub Dashboard</h1>
+            <h1>
+              {activeView === "dashboard" && "Your LifeHub Dashboard"}
+              {activeView === "files" && "Files"}
+              {activeView === "notes" && "Notes"}
+              {activeView === "links" && "Links"}
+              {activeView === "settings" && "Settings"}
+            </h1>
             <p className="muted">
-              Manage your personal files, notes, links, and important life records.
+              {activeView === "dashboard" &&
+                "Manage your personal files, notes, links, and important life records."}
+              {activeView === "files" &&
+                "Upload, organize, search, and manage your personal documents."}
+              {activeView === "notes" &&
+                "Save private notes, reminders, checklists, and personal records."}
+              {activeView === "links" &&
+                "Save useful links and resources in one place."}
+              {activeView === "settings" &&
+                "Manage your account and LifeHub preferences."}
             </p>
           </div>
 
@@ -284,151 +427,330 @@ function Dashboard({ user }) {
           </div>
         </header>
 
-        <section className="dashboard-grid">
-          <article className="stat-card">
-            <p className="muted">Files</p>
-            <h2>{files.length}</h2>
-            <p className="muted">Uploaded personal files and documents.</p>
-          </article>
+        {error && <p className="global-error">{error}</p>}
 
-          <article className="stat-card">
-            <p className="muted">Notes</p>
-            <h2>0</h2>
-            <p className="muted">Notes feature comes later.</p>
-          </article>
+        {activeView === "dashboard" && (
+          <>
+            <section className="dashboard-grid">
+              <article className="stat-card">
+                <p className="muted">Files</p>
+                <h2>{files.length}</h2>
+                <p className="muted">Uploaded personal files and documents.</p>
+              </article>
 
-          <article className="stat-card">
-            <p className="muted">Links</p>
-            <h2>0</h2>
-            <p className="muted">Links feature comes later.</p>
-          </article>
-        </section>
+              <article className="stat-card">
+                <p className="muted">Notes</p>
+                <h2>{notes.length}</h2>
+                <p className="muted">Private notes saved in your LifeHub.</p>
+              </article>
 
-        <section className="upload-card">
-          <div>
-            <h2>Upload a file</h2>
-            <p className="muted">
-              Store documents, images, certificates, receipts, and personal records.
-            </p>
-          </div>
+              <article className="stat-card">
+                <p className="muted">Storage used</p>
+                <h2>{formatBytes(totalStorageBytes)}</h2>
+                <p className="muted">Total size of your uploaded files.</p>
+              </article>
+            </section>
 
-          <form className="upload-form" onSubmit={handleUpload}>
-            <label>
-              Category
-              <select
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-              >
-                {categories.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </label>
-
-            <label>
-              File
-              <input
-                type="file"
-                accept={allowedExtensions.join(",")}
-                onChange={handleFileChange}
-              />
-            </label>
-
-            <p className="helper-text">
-              Allowed: PDF, images, text,Markdown, Word, Excel, and PowerPoint files.
-              Secret/config files like .env, .pem, .key, .json, and .js are
-              blocked for now.
-            </p>
-
-            {selectedFile && (
-              <p className="muted">
-                Selected: <strong>{selectedFile.name}</strong>{" "}
-                ({formatBytes(selectedFile.size)})
-              </p>
-            )}
-
-            {uploading && (
-              <div className="progress">
-                <div style={{ width: `${uploadProgress}%` }} />
-              </div>
-            )}
-
-            {uploading && <p className="muted">Uploading {uploadProgress}%</p>}
-
-            {error && <p className="error">{error}</p>}
-
-            <button type="submit" disabled={uploading}>
-              {uploading ? "Uploading..." : "Upload file"}
-            </button>
-          </form>
-        </section>
-
-        <section className="files-card">
-          <div className="section-title">
-            <div>
-              <h2>Recent files</h2>
-              <p className="muted">
-                Showing {filteredFiles.length} of {files.length} file(s)
-              </p>
-            </div>
-          </div>
-
-          <div className="file-toolbar">
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search by file name..."
-            />
-
-            <select
-              value={categoryFilter}
-              onChange={(event) => setCategoryFilter(event.target.value)}
-            >
-              <option>All</option>
-              {categories.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </div>
-
-          {files.length === 0 ? (
-            <p className="muted">No files uploaded yet.</p>
-          ) : filteredFiles.length === 0 ? (
-            <p className="muted">No files match your search or filter.</p>
-          ) : (
-            <div className="file-list">
-              {filteredFiles.map((file) => (
-                <div className="file-row" key={file.id}>
-                  <a
-                    className="file-link"
-                    href={file.downloadURL}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    <div>
-                      <strong>{file.fileName}</strong>
-                      <p className="muted">
-                        {file.category} · {formatBytes(file.fileSize)}
-                      </p>
-                    </div>
-
-                    <span>Open</span>
-                  </a>
+            <section className="overview-grid">
+              <article className="overview-card">
+                <div className="section-title">
+                  <div>
+                    <h2>Recent files</h2>
+                    <p className="muted">Latest uploaded documents</p>
+                  </div>
 
                   <button
                     type="button"
-                    className="danger-button"
-                    disabled={deletingFileId === file.id}
-                    onClick={() => handleDeleteFile(file)}
+                    className="secondary-button"
+                    onClick={() => openView("files")}
                   >
-                    {deletingFileId === file.id ? "Deleting..." : "Delete"}
+                    View files
                   </button>
                 </div>
-              ))}
+
+                {latestFiles.length === 0 ? (
+                  <p className="muted">No files uploaded yet.</p>
+                ) : (
+                  <div className="compact-list">
+                    {latestFiles.map((file) => (
+                      <a
+                        href={file.downloadURL}
+                        target="_blank"
+                        rel="noreferrer"
+                        key={file.id}
+                      >
+                        <strong>{file.fileName}</strong>
+                        <span>
+                          {file.category} · {formatBytes(file.fileSize)}
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </article>
+
+              <article className="overview-card">
+                <div className="section-title">
+                  <div>
+                    <h2>Recent notes</h2>
+                    <p className="muted">Latest private notes</p>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => openView("notes")}
+                  >
+                    View notes
+                  </button>
+                </div>
+
+                {latestNotes.length === 0 ? (
+                  <p className="muted">No notes yet.</p>
+                ) : (
+                  <div className="compact-list">
+                    {latestNotes.map((note) => (
+                      <button
+                        type="button"
+                        key={note.id}
+                        onClick={() => openView("notes")}
+                      >
+                        <strong>{note.title}</strong>
+                        <span>{note.body.slice(0, 80)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </article>
+            </section>
+          </>
+        )}
+
+        {activeView === "files" && (
+          <>
+            <section className="upload-card">
+              <div>
+                <h2>Upload a file</h2>
+                <p className="muted">
+                  Store documents, images, certificates, receipts, and personal
+                  records.
+                </p>
+              </div>
+
+              <form className="upload-form" onSubmit={handleUpload}>
+                <label>
+                  Category
+                  <select
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value)}
+                  >
+                    {categories.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  File
+                  <input
+                    type="file"
+                    accept={allowedExtensions.join(",")}
+                    onChange={handleFileChange}
+                  />
+                </label>
+
+                <p className="helper-text">
+                  Allowed: PDF, images, text, Markdown, Word, Excel, and
+                  PowerPoint files. Secret/config/code files like .env, .pem,
+                  .key, .json, .js, .py, and .conf are blocked for now.
+                </p>
+
+                {selectedFile && (
+                  <p className="muted">
+                    Selected: <strong>{selectedFile.name}</strong>{" "}
+                    ({formatBytes(selectedFile.size)})
+                  </p>
+                )}
+
+                {uploading && (
+                  <div className="progress">
+                    <div style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                )}
+
+                {uploading && (
+                  <p className="muted">Uploading {uploadProgress}%</p>
+                )}
+
+                <button type="submit" disabled={uploading}>
+                  {uploading ? "Uploading..." : "Upload file"}
+                </button>
+              </form>
+            </section>
+
+            <section className="files-card">
+              <div className="section-title">
+                <div>
+                  <h2>File library</h2>
+                  <p className="muted">
+                    Showing {filteredFiles.length} of {files.length} file(s)
+                  </p>
+                </div>
+              </div>
+
+              <div className="file-toolbar">
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search by file name..."
+                />
+
+                <select
+                  value={categoryFilter}
+                  onChange={(event) => setCategoryFilter(event.target.value)}
+                >
+                  <option>All</option>
+                  {categories.map((item) => (
+                    <option key={item}>{item}</option>
+                  ))}
+                </select>
+              </div>
+
+              {files.length === 0 ? (
+                <p className="muted">No files uploaded yet.</p>
+              ) : filteredFiles.length === 0 ? (
+                <p className="muted">No files match your search or filter.</p>
+              ) : (
+                <div className="file-list">
+                  {filteredFiles.map((file) => (
+                    <div className="file-row" key={file.id}>
+                      <a
+                        className="file-link"
+                        href={file.downloadURL}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <div>
+                          <strong>{file.fileName}</strong>
+                          <p className="muted">
+                            {file.category} · {formatBytes(file.fileSize)}
+                          </p>
+                        </div>
+
+                        <span>Open</span>
+                      </a>
+
+                      <button
+                        type="button"
+                        className="danger-button"
+                        disabled={deletingFileId === file.id}
+                        onClick={() => handleDeleteFile(file)}
+                      >
+                        {deletingFileId === file.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+
+        {activeView === "notes" && (
+          <section className="notes-card">
+            <div className="section-title">
+              <div>
+                <h2>Notes</h2>
+                <p className="muted">{notes.length} note(s)</p>
+              </div>
             </div>
-          )}
-        </section>
+
+            <form className="note-form" onSubmit={handleCreateNote}>
+              <label>
+                Note title
+                <input
+                  type="text"
+                  value={noteTitle}
+                  onChange={(event) => setNoteTitle(event.target.value)}
+                  placeholder="Example: Visa renewal checklist"
+                />
+              </label>
+
+              <label>
+                Note content
+                <textarea
+                  value={noteBody}
+                  onChange={(event) => setNoteBody(event.target.value)}
+                  placeholder="Write your private note..."
+                  rows="5"
+                />
+              </label>
+
+              <button type="submit" disabled={savingNote}>
+                {savingNote ? "Saving..." : "Save note"}
+              </button>
+            </form>
+
+            {notes.length === 0 ? (
+              <p className="muted">No notes yet.</p>
+            ) : (
+              <div className="note-list">
+                {notes.map((note) => (
+                  <article className="note-item" key={note.id}>
+                    <div>
+                      <h3>{note.title}</h3>
+                      <p>{note.body}</p>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="danger-button"
+                      disabled={deletingNoteId === note.id}
+                      onClick={() => handleDeleteNote(note)}
+                    >
+                      {deletingNoteId === note.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeView === "links" && (
+          <section className="empty-product-card">
+            <h2>Links are coming next</h2>
+            <p className="muted">
+              This section will let users save important websites, resources,
+              portfolio links, school links, documents, and references.
+            </p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => openView("dashboard")}
+            >
+              Back to dashboard
+            </button>
+          </section>
+        )}
+
+        {activeView === "settings" && (
+          <section className="empty-product-card">
+            <h2>Settings</h2>
+            <p className="muted">
+              Account settings, profile preferences, storage usage, and future
+              security controls will live here.
+            </p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => openView("dashboard")}
+            >
+              Back to dashboard
+            </button>
+          </section>
+        )}
       </section>
     </main>
   );
