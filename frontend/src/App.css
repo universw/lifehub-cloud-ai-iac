@@ -2107,3 +2107,41 @@ strong {
   color: #166534;
   font-weight: 800;
 }
+.danger-zone-panel {
+  display: grid;
+  gap: 16px;
+  margin-top: 18px;
+  padding: 20px;
+  border: 1px solid #fecaca;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.danger-zone-panel h3 {
+  margin: 0 0 8px;
+  color: #991b1b;
+}
+
+.account-delete-panel {
+  background:
+    radial-gradient(circle at top right, rgba(239, 68, 68, 0.1), transparent 34%),
+    rgba(255, 255, 255, 0.88);
+}
+
+.delete-warning-text {
+  margin: 10px 0 0;
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.delete-confirm-label {
+  display: grid;
+  gap: 8px;
+  font-weight: 900;
+  color: #7f1d1d;
+}
+
+.delete-confirm-label input {
+  border-color: #fecaca;
+  background: #fffafa;
+}

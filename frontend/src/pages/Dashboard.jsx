@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { sendEmailVerification, signOut } from "firebase/auth";
+import { deleteUser, sendEmailVerification, signOut } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import {
   addDoc,
@@ -241,6 +241,9 @@ function Dashboard({ user }) {
   const [sendingVerification, setSendingVerification] = useState(false);
   const [aiSummaries, setAiSummaries] = useState({});
   const [summarizingNoteId, setSummarizingNoteId] = useState("");
+
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     const filesRef = collection(db, "users", user.uid, "files");
@@ -484,6 +487,65 @@ function Dashboard({ user }) {
 
   async function handleLogout() {
     await signOut(auth);
+  }
+
+  async function handleDeleteAccount() {
+    setError("");
+    setSuccessMessage("");
+
+    if (deleteConfirmText !== "DELETE") {
+      setError('Please type DELETE to confirm account deletion.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "This will permanently delete your LifeHub account data and Firebase Auth account. This action cannot be undone. Continue?"
+    );
+
+    if (!confirmed) return;
+
+    setDeletingAccount(true);
+
+    try {
+      for (const file of files) {
+        try {
+          if (file.storagePath) {
+            await deleteObject(ref(storage, file.storagePath));
+          }
+        } catch (fileStorageError) {
+          console.warn("Failed to delete file from Storage", fileStorageError);
+        }
+
+        await deleteDoc(doc(db, "users", user.uid, "files", file.id));
+      }
+
+      for (const note of notes) {
+        await deleteDoc(doc(db, "users", user.uid, "notes", note.id));
+      }
+
+      for (const link of links) {
+        await deleteDoc(doc(db, "users", user.uid, "links", link.id));
+      }
+
+      for (const activity of activities) {
+        await deleteDoc(doc(db, "users", user.uid, "activity", activity.id));
+      }
+
+      await deleteDoc(doc(db, "users", user.uid, "profile", "settings"));
+      await deleteDoc(doc(db, "users", user.uid));
+
+      await deleteUser(user);
+    } catch (err) {
+      if (err.message?.includes("auth/requires-recent-login")) {
+        setError(
+          "For security, Firebase requires a recent login before deleting your account. Please log out, log in again, then try deleting your account."
+        );
+      } else {
+        setError(err.message || "Failed to delete account.");
+      }
+    } finally {
+      setDeletingAccount(false);
+    }
   }
 
   async function handleSendVerificationEmail() {
@@ -2380,19 +2442,60 @@ function Dashboard({ user }) {
 
             <section className="settings-card danger-zone">
               <p className="eyebrow">Danger zone</p>
-              <h2>Session</h2>
-              <p className="muted">
-                Log out from this browser. Your files, notes, and links will
-                remain saved.
-              </p>
+              <h2>Account and session</h2>
 
-              <button
-                type="button"
-                className="danger-button"
-                onClick={handleLogout}
-              >
-                Logout
-              </button>
+              <div className="danger-zone-panel">
+                <div>
+                  <h3>Log out</h3>
+                  <p className="muted">
+                    Log out from this browser. Your files, notes, and links will
+                    remain saved.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  className="danger-button"
+                  onClick={handleLogout}
+                >
+                  Logout
+                </button>
+              </div>
+
+              <div className="danger-zone-panel account-delete-panel">
+                <div>
+                  <h3>Delete account</h3>
+                  <p className="muted">
+                    Permanently delete your LifeHub account, profile, files,
+                    notes, links, recent activity, and Firebase Auth account.
+                  </p>
+                  <p className="delete-warning-text">
+                    This action cannot be undone. Firebase may require you to
+                    log in again before deleting your account.
+                  </p>
+                </div>
+
+                <label className="delete-confirm-label">
+                  Type DELETE to confirm
+                  <input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={(event) =>
+                      setDeleteConfirmText(event.target.value)
+                    }
+                    placeholder="DELETE"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  className="danger-button"
+                  disabled={deletingAccount || deleteConfirmText !== "DELETE"}
+                  onClick={handleDeleteAccount}
+                >
+                  {deletingAccount ? "Deleting account..." : "Delete account"}
+                </button>
+              </div>
             </section>
           </section>
         )}
