@@ -2,27 +2,18 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if isOwner(userId);
 
-      match /profile/{profileDocId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      match /files/{fileId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      match /notes/{noteId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      match /links/{linkId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      match /activity/{activityId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Cover every subcollection under /users/{userId} (profile, files, notes,
+      // links, activity, vault/**, security/**, etc.) without enumerating each
+      // one explicitly.
+      match /{document=**} {
+        allow read, write: if isOwner(userId);
       }
     }
   }

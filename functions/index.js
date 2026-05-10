@@ -3,13 +3,80 @@ const { defineSecret } = require("firebase-functions/params");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { GoogleGenAI } = require("@google/genai");
+const admin = require("firebase-admin");
+
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
+const adminDb = admin.firestore();
 
 const geminiApiKey = defineSecret("GEMINI_API_KEY");
+
+const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_UPLOAD_EXTENSIONS = [
+  ".pdf",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".webp",
+  ".txt",
+  ".md",
+  ".doc",
+  ".docx",
+  ".xls",
+  ".xlsx",
+  ".ppt",
+  ".pptx",
+];
+const BLOCKED_UPLOAD_EXTENSIONS = [
+  ".env",
+  ".js",
+  ".ts",
+  ".json",
+  ".py",
+  ".conf",
+  ".pem",
+  ".key",
+  ".p12",
+  ".pfx",
+  ".crt",
+  ".cer",
+  ".config",
+  ".yml",
+  ".yaml",
+];
 
 setGlobalOptions({
   maxInstances: 10,
   region: "asia-northeast1",
 });
+
+function requireAuth(request) {
+  if (!request.auth) {
+    throw new HttpsError(
+      "unauthenticated",
+      "You must be signed in to use this feature."
+    );
+  }
+  return request.auth.uid;
+}
+
+function getFileExtension(name) {
+  const value = String(name || "").toLowerCase();
+  const lastDot = value.lastIndexOf(".");
+  return lastDot === -1 ? "" : value.slice(lastDot);
+}
+
+async function countCollection(uid, name) {
+  const snapshot = await adminDb
+    .collection("users")
+    .doc(uid)
+    .collection(name)
+    .count()
+    .get();
+  return snapshot.data().count;
+}
 
 function cleanText(value) {
   return String(value || "").trim();
@@ -163,3 +230,139 @@ ${noteBody}
     }
   }
 );
+
+exports.getWorkspaceStats = onCall(async (request) => {
+  const uid = requireAuth(request);
+
+  try {
+    const [filesCount, notesCount, linksCount, activityCount] =
+      await Promise.all([
+        countCollection(uid, "files"),
+        countCollection(uid, "notes"),
+        countCollection(uid, "links"),
+        countCollection(uid, "activity"),
+      ]);
+
+    const filesSnapshot = await adminDb
+      .collection("users")
+      .doc(uid)
+      .collection("files")
+      .get();
+
+    let totalStorageBytes = 0;
+    let importantFiles = 0;
+    filesSnapshot.forEach((docSnapshot) => {
+      const data = docSnapshot.data();
+      totalStorageBytes += Number(data.fileSize || 0);
+      if (data.isImportant) importantFiles += 1;
+    });
+
+    const notesSnapshot = await adminDb
+      .collection("users")
+      .doc(uid)
+      .collection("notes")
+      .where("isImportant", "==", true)
+      .get();
+    const linksSnapshot = await adminDb
+      .collection("users")
+      .doc(uid)
+      .collection("links")
+      .where("isImportant", "==", true)
+      .get();
+
+    return {
+      filesCount,
+      notesCount,
+      linksCount,
+      activityCount,
+      importantCount:
+        importantFiles + notesSnapshot.size + linksSnapshot.size,
+      totalStorageBytes,
+    };
+  } catch (err) {
+    logger.error("getWorkspaceStats failed", err);
+    throw new HttpsError("internal", "Could not load workspace stats.");
+  }
+});
+
+exports.validateUpload = onCall((request) => {
+  requireAuth(request);
+
+  const fileName = String(request.data?.fileName || "sample-document.pdf");
+  const fileSize = Number(request.data?.fileSize || 0);
+  const reasons = [];
+
+  const extension = getFileExtension(fileName);
+
+  if (BLOCKED_UPLOAD_EXTENSIONS.includes(extension)) {
+    reasons.push(`${extension} files are blocked from normal uploads.`);
+  } else if (extension && !ALLOWED_UPLOAD_EXTENSIONS.includes(extension)) {
+    reasons.push(`${extension} is not in the allowed extension list.`);
+  }
+
+  if (fileSize > MAX_UPLOAD_SIZE_BYTES) {
+    reasons.push("File exceeds the 10MB upload limit.");
+  }
+
+  return {
+    allowed: reasons.length === 0,
+    extension,
+    maxUploadSizeBytes: MAX_UPLOAD_SIZE_BYTES,
+    allowedExtensions: ALLOWED_UPLOAD_EXTENSIONS,
+    blockedExtensions: BLOCKED_UPLOAD_EXTENSIONS,
+    reasons,
+  };
+});
+
+exports.createSupportTicket = onCall(async (request) => {
+  const uid = requireAuth(request);
+
+  const subject = String(request.data?.subject || "").trim();
+  const message = String(request.data?.message || "").trim();
+
+  if (!subject || subject.length > 120) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Subject is required and must be 120 characters or fewer."
+    );
+  }
+
+  if (!message || message.length > 2000) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Message is required and must be 2,000 characters or fewer."
+    );
+  }
+
+  try {
+    const ticketRef = await adminDb
+      .collection("users")
+      .doc(uid)
+      .collection("supportTickets")
+      .add({
+        subject,
+        message,
+        status: "open",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+    await adminDb
+      .collection("users")
+      .doc(uid)
+      .collection("activity")
+      .add({
+        action: "support_ticket_created",
+        itemType: "account",
+        message: "Created a support ticket",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+    return {
+      ticketId: ticketRef.id,
+      status: "open",
+    };
+  } catch (err) {
+    logger.error("createSupportTicket failed", err);
+    throw new HttpsError("internal", "Could not create support ticket.");
+  }
+});

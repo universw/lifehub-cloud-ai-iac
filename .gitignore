@@ -23,3 +23,31 @@ crash.*.log
 # Logs
 *.log
 npm-debug.log*.firebase/
+
+# Local AI tooling (kept private)
+.claude/
+.claude*/
+**/.claude/
+**/.claude*/
+CLAUDE.md
+**/CLAUDE.md
+.claudeignore
+**/.claudeignore
+.claude-code/
+**/.claude-code/
+*.claude.md
+.aider*
+.cursor/
+.cursorrules
+.cursorignore
+.windsurfrules
+.continue/
+.codeium/
+.copilot/
+.github/copilot-instructions.md
+ai/
+.ai/
+.agent/
+.agents/
+prompts/
+.prompts/
