@@ -24,16 +24,23 @@ import {
 } from "../lib/crypto";
 import { friendlyFirebaseError } from "../lib/errors";
 import { scorePassword } from "../lib/password";
+import { useConfirm } from "../components/confirmContext";
+import { useToast } from "../components/toastContext";
 
 const AUTO_LOCK_MS = 5 * 60 * 1000; // lock after 5 minutes idle
 const ENTRY_KINDS = [
-  { value: "password", label: "Password" },
-  { value: "note", label: "Secure note" },
-  { value: "key", label: "Private key" },
-  { value: "recovery", label: "Recovery code" },
-  { value: "card", label: "Card / ID" },
-  { value: "other", label: "Other secret" },
+  { value: "password", label: "Password", icon: "🔑" },
+  { value: "note", label: "Secure note", icon: "📓" },
+  { value: "key", label: "Private key", icon: "🗝️" },
+  { value: "recovery", label: "Recovery code", icon: "🛟" },
+  { value: "card", label: "Card / ID", icon: "💳" },
+  { value: "other", label: "Other secret", icon: "🔒" },
 ];
+
+function getEntryIcon(kind) {
+  const found = ENTRY_KINDS.find((entry) => entry.value === kind);
+  return found ? found.icon : "🔒";
+}
 
 function VaultUnlockState({ onSetup, onUnlock, hasMaster, error, working }) {
   const [password, setPassword] = useState("");
@@ -163,6 +170,8 @@ function VaultUnlockState({ onSetup, onUnlock, hasMaster, error, working }) {
 }
 
 function Vault({ user, logActivity }) {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [vaultMeta, setVaultMeta] = useState(null);
   const [vaultMetaLoaded, setVaultMetaLoaded] = useState(false);
   const [vaultKey, setVaultKey] = useState(null);
@@ -514,9 +523,12 @@ function Vault({ user, logActivity }) {
   }
 
   async function handleDeleteEntry(item) {
-    const confirmed = window.confirm(
-      `Permanently delete "${item.name}" from the Vault?`
-    );
+    const confirmed = await confirm({
+      title: "Delete this Vault entry?",
+      message: `"${item.name}" will be permanently removed. This cannot be undone.`,
+      confirmLabel: "Delete entry",
+      tone: "danger",
+    });
     if (!confirmed) return;
 
     try {
@@ -524,6 +536,7 @@ function Vault({ user, logActivity }) {
         doc(db, "users", user.uid, "vault", "items", "entries", item.id)
       );
       writeAudit("vault_item_deleted", "Deleted a Vault entry");
+      toast.success("Vault entry deleted.");
       setRevealed((current) => {
         const next = { ...current };
         delete next[item.id];
@@ -538,8 +551,9 @@ function Vault({ user, logActivity }) {
     try {
       await navigator.clipboard.writeText(value);
       writeAudit("vault_item_copied", `Copied ${label} to clipboard`);
+      toast.success(`Copied ${label} to clipboard.`);
     } catch {
-      // clipboard not available
+      toast.error("Could not access the clipboard.");
     }
   }
 
@@ -675,7 +689,19 @@ function Vault({ user, logActivity }) {
         </div>
 
         {filteredItems.length === 0 ? (
-          <p className="muted">No Vault items yet. Add your first secret above.</p>
+          <div className="empty-state">
+            <span className="empty-state-icon" aria-hidden="true">🔐</span>
+            <strong>
+              {searchTerm
+                ? "No matches in your Vault"
+                : "Your Vault is ready for its first secret"}
+            </strong>
+            <p className="muted">
+              {searchTerm
+                ? "Try a different search term, or clear the search to see all entries."
+                : "Use the form above to add a password, recovery code, or private key. Items are encrypted on this device with AES-GCM 256 before they're saved."}
+            </p>
+          </div>
         ) : (
           <ul className="vault-item-list">
             {filteredItems.map((item) => {
@@ -732,15 +758,20 @@ function Vault({ user, logActivity }) {
               return (
                 <li key={item.id} className="vault-item">
                   <div className="vault-item-head">
-                    <div>
-                      <span className={`vault-kind-tag kind-${item.kind}`}>
-                        {item.kind}
+                    <div className="vault-item-title">
+                      <span className="vault-item-icon" aria-hidden="true">
+                        {getEntryIcon(item.kind)}
                       </span>
-                      <strong>{item.name}</strong>
-                      {item.corrupted && (
-                        <span className="form-error">decryption failed</span>
-                      )}
+                      <div>
+                        <strong>{item.name}</strong>
+                        <span className={`vault-kind-tag kind-${item.kind}`}>
+                          {item.kind}
+                        </span>
+                      </div>
                     </div>
+                    {item.corrupted && (
+                      <span className="form-error">decryption failed</span>
+                    )}
                   </div>
 
                   <div className="vault-secret-row">

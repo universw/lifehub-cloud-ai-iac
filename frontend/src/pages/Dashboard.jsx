@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { deleteUser, sendEmailVerification, signOut } from "firebase/auth";
 import { httpsCallable } from "firebase/functions";
 import {
@@ -21,8 +21,9 @@ import {
   uploadBytesResumable,
 } from "firebase/storage";
 import { auth, db, functions, storage } from "../firebase";
-import Vault from "./Vault";
 import QrCode from "../components/QrCode";
+import { useConfirm } from "../components/confirmContext";
+import { useToast } from "../components/toastContext";
 import {
   buildOtpAuthUri,
   generateTotpSecret,
@@ -33,6 +34,8 @@ import {
   generateRecoveryCodes,
   hashRecoveryCodes,
 } from "../lib/recoveryCodes";
+
+const Vault = lazy(() => import("./Vault"));
 
 const categories = [
   "Personal",
@@ -193,6 +196,8 @@ function sortItems(items, sortType, labelKey) {
 }
 
 function Dashboard({ user }) {
+  const confirm = useConfirm();
+  const toast = useToast();
   const [activeView, setActiveView] = useState("dashboard");
 
   const [files, setFiles] = useState([]);
@@ -550,9 +555,14 @@ function Dashboard({ user }) {
       return;
     }
 
-    const confirmed = window.confirm(
-      "This will permanently delete your LifeHub account data and Firebase Auth account. This action cannot be undone. Continue?"
-    );
+    const confirmed = await confirm({
+      title: "Delete your LifeHub account?",
+      message:
+        "This permanently removes your profile, files, notes, links, recent activity, Vault, and Firebase Auth account. This action cannot be undone.",
+      confirmLabel: "Delete account",
+      cancelLabel: "Keep account",
+      tone: "danger",
+    });
 
     if (!confirmed) return;
 
@@ -607,9 +617,7 @@ function Dashboard({ user }) {
 
     try {
       await sendEmailVerification(user);
-      setSuccessMessage(
-        "Verification email sent. Please check your inbox or spam folder."
-      );
+      toast.success("Verification email sent — check your inbox or spam.");
 
       await logActivity(
         "verification_email_sent",
@@ -617,7 +625,9 @@ function Dashboard({ user }) {
         "Sent verification email"
       );
     } catch (err) {
-      setError(err.message || "Failed to send verification email.");
+      toast.error(
+        friendlyFirebaseError(err, "Failed to send verification email.")
+      );
     } finally {
       setSendingVerification(false);
     }
@@ -810,7 +820,12 @@ function Dashboard({ user }) {
   }
 
   async function handleDeleteFile(file) {
-    const confirmed = window.confirm(`Delete "${file.fileName}"?`);
+    const confirmed = await confirm({
+      title: "Delete this file?",
+      message: `"${file.fileName}" will be permanently removed from LifeHub Storage.`,
+      confirmLabel: "Delete file",
+      tone: "danger",
+    });
 
     if (!confirmed) return;
 
@@ -912,7 +927,12 @@ function Dashboard({ user }) {
   }
 
   async function handleDeleteNote(note) {
-    const confirmed = window.confirm(`Delete note "${note.title}"?`);
+    const confirmed = await confirm({
+      title: "Delete this note?",
+      message: `"${note.title}" will be permanently removed.`,
+      confirmLabel: "Delete note",
+      tone: "danger",
+    });
 
     if (!confirmed) return;
 
@@ -1140,7 +1160,12 @@ function Dashboard({ user }) {
   }
 
   async function handleDeleteLink(link) {
-    const confirmed = window.confirm(`Delete link "${link.title}"?`);
+    const confirmed = await confirm({
+      title: "Delete this link?",
+      message: `"${link.title}" will be permanently removed.`,
+      confirmLabel: "Delete link",
+      tone: "danger",
+    });
 
     if (!confirmed) return;
 
@@ -1347,9 +1372,9 @@ function Dashboard({ user }) {
   async function handleCopyText(value) {
     try {
       await navigator.clipboard.writeText(value);
-      setSuccessMessage("Copied to clipboard.");
+      toast.success("Copied to clipboard.");
     } catch {
-      setError("Could not copy to clipboard.");
+      toast.error("Could not access the clipboard.");
     }
   }
 
@@ -2630,7 +2655,9 @@ function Dashboard({ user }) {
         )}
 
         {activeView === "vault" && (
-          <Vault user={user} logActivity={logActivity} />
+          <Suspense fallback={<p className="muted">Loading Vault...</p>}>
+            <Vault user={user} logActivity={logActivity} />
+          </Suspense>
         )}
 
         {activeView === "settings" && (
