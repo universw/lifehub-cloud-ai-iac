@@ -2227,3 +2227,536 @@ strong {
   box-shadow: 0 0 0 1000px #ffffff inset !important;
   caret-color: #2563eb;
 }
+
+/* ---------- Vault page ---------- */
+
+.vault-shell {
+  display: grid;
+  gap: 24px;
+}
+
+.vault-shell.unlocked {
+  grid-template-columns: 1fr;
+}
+
+.vault-gate {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 28px;
+  display: grid;
+  gap: 14px;
+  max-width: 520px;
+  box-shadow: 0 18px 40px -28px rgba(15, 23, 42, 0.25);
+}
+
+.vault-gate label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.vault-gate input {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  font-size: 1rem;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.vault-gate input:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+.vault-gate button[type="submit"] {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vault-gate button[type="submit"]:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.form-error {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.vault-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 22px 24px;
+}
+
+.vault-header h2 {
+  margin: 4px 0 6px;
+}
+
+.vault-add-card,
+.vault-list-card,
+.vault-audit-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 22px 24px;
+}
+
+.vault-add-form {
+  display: grid;
+  gap: 12px;
+}
+
+.vault-add-form label,
+.vault-item.editing label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.vault-add-form input,
+.vault-add-form select,
+.vault-add-form textarea,
+.vault-item.editing input,
+.vault-item.editing select,
+.vault-item.editing textarea {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.vault-add-form button[type="submit"] {
+  justify-self: start;
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.vault-list-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.vault-list-toolbar input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.vault-item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+.vault-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f8fafc;
+  display: grid;
+  gap: 10px;
+}
+
+.vault-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.vault-item-head strong {
+  color: #0f172a;
+}
+
+.vault-kind-tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  background: #dbeafe;
+  color: #1d4ed8;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 8px;
+}
+
+.vault-secret-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.vault-secret-row code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  word-break: break-all;
+  color: #0f172a;
+}
+
+.vault-secret-row code.masked {
+  letter-spacing: 0.18em;
+}
+
+.vault-secret-actions,
+.vault-item-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vault-notes {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.vault-audit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.vault-audit-list li {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 0.9rem;
+}
+
+.vault-audit-action {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .vault-header,
+  .vault-secret-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .vault-audit-list li {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- MFA setup card ---------- */
+
+.mfa-card {
+  background: linear-gradient(135deg, #ffffff, #ecfdf5);
+}
+
+.mfa-setup-form,
+.mfa-disable-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.mfa-setup-form input,
+.mfa-disable-form input {
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 1.05rem;
+  letter-spacing: 0.18em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
+.mfa-secret-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  flex-wrap: wrap;
+}
+
+.mfa-secret-block .mono-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  word-break: break-all;
+  font-size: 0.85rem;
+  color: #0f172a;
+}
+
+.mfa-secret-block .otpauth-uri {
+  font-size: 0.78rem;
+  color: #475569;
+}
+
+.mfa-setup-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- MFA challenge screen ---------- */
+
+.mfa-challenge-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #eff6ff, #ecfdf5);
+  padding: 24px;
+}
+
+.mfa-challenge-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 32px;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: 0 24px 50px -28px rgba(15, 23, 42, 0.3);
+  display: grid;
+  gap: 14px;
+}
+
+.mfa-challenge-card form {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.mfa-challenge-card label {
+  display: grid;
+  gap: 6px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.mfa-challenge-card input {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 1.4rem;
+  letter-spacing: 0.32em;
+  text-align: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+}
+
+.mfa-challenge-card button[type="submit"] {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.mfa-challenge-card .link-button {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px;
+  margin-top: 4px;
+  justify-self: center;
+}
+
+/* ---------- Password strength meter ---------- */
+
+.password-meter {
+  display: grid;
+  gap: 8px;
+  margin: -4px 0 4px;
+}
+
+.password-meter-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+
+.password-meter-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.2s ease;
+}
+
+.password-meter.strength-0 .password-meter-bar span,
+.password-meter.strength-1 .password-meter-bar span {
+  background: #dc2626;
+}
+
+.password-meter.strength-2 .password-meter-bar span,
+.password-meter.strength-3 .password-meter-bar span {
+  background: #f59e0b;
+}
+
+.password-meter.strength-4 .password-meter-bar span {
+  background: #10b981;
+}
+
+.password-meter.strength-5 .password-meter-bar span,
+.password-meter.strength-6 .password-meter-bar span {
+  background: #047857;
+}
+
+.password-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 4px 12px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.password-checks li::before {
+  content: "○ ";
+  color: #94a3b8;
+}
+
+.password-checks li.ok {
+  color: #047857;
+}
+
+.password-checks li.ok::before {
+  content: "✓ ";
+  color: #047857;
+}
+
+/* ---------- MFA QR + recovery codes ---------- */
+
+.mfa-qr-row {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.mfa-qr-meta {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+  min-width: 220px;
+}
+
+.qr-image {
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.qr-placeholder {
+  background: #f1f5f9;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+}
+
+.mfa-recovery-block {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  border-radius: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.mfa-recovery-block h3 {
+  margin: 0;
+}
+
+.recovery-codes-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.recovery-codes-grid li {
+  background: #ffffff;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  text-align: center;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.mfa-recovery-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+

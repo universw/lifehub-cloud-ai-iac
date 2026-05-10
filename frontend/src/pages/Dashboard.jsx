@@ -21,6 +21,18 @@ import {
   uploadBytesResumable,
 } from "firebase/storage";
 import { auth, db, functions, storage } from "../firebase";
+import Vault from "./Vault";
+import QrCode from "../components/QrCode";
+import {
+  buildOtpAuthUri,
+  generateTotpSecret,
+  verifyTotpCode,
+} from "../lib/totp";
+import { friendlyFirebaseError } from "../lib/errors";
+import {
+  generateRecoveryCodes,
+  hashRecoveryCodes,
+} from "../lib/recoveryCodes";
 
 const categories = [
   "Personal",
@@ -250,6 +262,32 @@ function Dashboard({ user }) {
   const [supportSubject, setSupportSubject] = useState("");
   const [supportMessage, setSupportMessage] = useState("");
   const [uploadValidationResult, setUploadValidationResult] = useState(null);
+
+  const [mfaConfig, setMfaConfig] = useState(null);
+  const [mfaSetupOpen, setMfaSetupOpen] = useState(false);
+  const [mfaSetupSecret, setMfaSetupSecret] = useState("");
+  const [mfaSetupCode, setMfaSetupCode] = useState("");
+  const [mfaSetupBusy, setMfaSetupBusy] = useState(false);
+  const [mfaSetupError, setMfaSetupError] = useState("");
+  const [mfaDisableCode, setMfaDisableCode] = useState("");
+  const [mfaDisableBusy, setMfaDisableBusy] = useState(false);
+  const [mfaDisableError, setMfaDisableError] = useState("");
+  const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState([]);
+  const [regenRecoveryBusy, setRegenRecoveryBusy] = useState(false);
+
+  useEffect(() => {
+    const mfaRef = doc(db, "users", user.uid, "security", "mfa");
+
+    const unsubscribe = onSnapshot(
+      mfaRef,
+      (snapshot) => {
+        setMfaConfig(snapshot.exists() ? snapshot.data() : null);
+      },
+      () => setMfaConfig(null)
+    );
+
+    return () => unsubscribe();
+  }, [user.uid]);
 
   useEffect(() => {
     const filesRef = collection(db, "users", user.uid, "files");
@@ -484,10 +522,18 @@ function Dashboard({ user }) {
     },
     {
       label: "Multi-factor authentication",
-      status: "Planned",
+      status: mfaConfig?.enabled ? "Active" : "Inactive",
+      description: mfaConfig?.enabled
+        ? "TOTP-based two-factor sign-in is active for this account."
+        : "Enable an authenticator app (Google Authenticator, 1Password, Authy) for stronger sign-in.",
+      tone: mfaConfig?.enabled ? "success" : "warning",
+    },
+    {
+      label: "Encrypted Vault",
+      status: "Available",
       description:
-        "Future upgrade for stronger account protection using an additional sign-in factor.",
-      tone: "info",
+        "Client-side AES-GCM 256 encryption with PBKDF2-derived master key. Plaintext never leaves the browser.",
+      tone: "success",
     },
   ];
 
@@ -1117,6 +1163,203 @@ function Dashboard({ user }) {
     setSuccessMessage("");
   }
 
+  function handleStartMfaSetup() {
+    setMfaSetupError("");
+    setMfaSetupCode("");
+    setMfaSetupSecret(generateTotpSecret());
+    setMfaSetupOpen(true);
+  }
+
+  function handleCancelMfaSetup() {
+    setMfaSetupOpen(false);
+    setMfaSetupSecret("");
+    setMfaSetupCode("");
+    setMfaSetupError("");
+  }
+
+  async function handleConfirmMfaSetup(event) {
+    event.preventDefault();
+    setMfaSetupError("");
+
+    if (!mfaSetupSecret) {
+      setMfaSetupError("Generate a secret first.");
+      return;
+    }
+
+    if (!/^\d{6}$/.test(mfaSetupCode.trim())) {
+      setMfaSetupError("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
+
+    setMfaSetupBusy(true);
+
+    try {
+      const valid = await verifyTotpCode({
+        secret: mfaSetupSecret,
+        code: mfaSetupCode.trim(),
+      });
+
+      if (!valid) {
+        setMfaSetupError(
+          "Code didn't match. Make sure your device clock is correct and try again."
+        );
+        return;
+      }
+
+      const recoveryCodes = generateRecoveryCodes(8);
+      const recoveryHashes = await hashRecoveryCodes(recoveryCodes);
+
+      await setDoc(doc(db, "users", user.uid, "security", "mfa"), {
+        enabled: true,
+        secret: mfaSetupSecret,
+        algorithm: "TOTP-SHA1",
+        digits: 6,
+        period: 30,
+        recoveryCodeHashes: recoveryHashes,
+        enrolledAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await logActivity(
+        "mfa_enabled",
+        "security",
+        "Enabled two-factor authentication"
+      );
+
+      setMfaRecoveryCodes(recoveryCodes);
+      setSuccessMessage(
+        "Two-factor authentication is now active. Save your recovery codes — they're shown only once."
+      );
+      handleCancelMfaSetup();
+    } catch (err) {
+      setMfaSetupError(friendlyFirebaseError(err, "Failed to enable MFA."));
+    } finally {
+      setMfaSetupBusy(false);
+    }
+  }
+
+  async function handleRegenerateRecoveryCodes() {
+    setRegenRecoveryBusy(true);
+    try {
+      const codes = generateRecoveryCodes(8);
+      const hashes = await hashRecoveryCodes(codes);
+
+      await updateDoc(doc(db, "users", user.uid, "security", "mfa"), {
+        recoveryCodeHashes: hashes,
+        recoveryCodesRegeneratedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      await logActivity(
+        "mfa_recovery_regenerated",
+        "security",
+        "Generated new MFA recovery codes"
+      );
+
+      setMfaRecoveryCodes(codes);
+      setSuccessMessage(
+        "New recovery codes generated. Old codes are no longer valid — store these somewhere safe."
+      );
+    } catch (err) {
+      setError(
+        friendlyFirebaseError(err, "Failed to regenerate recovery codes.")
+      );
+    } finally {
+      setRegenRecoveryBusy(false);
+    }
+  }
+
+  async function handleDownloadRecoveryCodes() {
+    if (mfaRecoveryCodes.length === 0) return;
+    const content = [
+      "LifeHub AI Cloud — MFA recovery codes",
+      `Account: ${user.email}`,
+      `Generated: ${new Date().toISOString()}`,
+      "Each code can be used once if you lose access to your authenticator.",
+      "",
+      ...mfaRecoveryCodes,
+    ].join("\n");
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "lifehub-recovery-codes.txt";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleDisableMfa(event) {
+    event.preventDefault();
+    setMfaDisableError("");
+
+    if (!mfaConfig?.secret) {
+      setMfaDisableError("MFA is not enabled.");
+      return;
+    }
+
+    if (!/^\d{6}$/.test(mfaDisableCode.trim())) {
+      setMfaDisableError("Enter your current 6-digit code to disable MFA.");
+      return;
+    }
+
+    setMfaDisableBusy(true);
+
+    try {
+      const valid = await verifyTotpCode({
+        secret: mfaConfig.secret,
+        code: mfaDisableCode.trim(),
+      });
+
+      if (!valid) {
+        setMfaDisableError("Incorrect code. MFA is still active.");
+        return;
+      }
+
+      await setDoc(
+        doc(db, "users", user.uid, "security", "mfa"),
+        {
+          enabled: false,
+          secret: null,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      await logActivity(
+        "mfa_disabled",
+        "security",
+        "Disabled two-factor authentication"
+      );
+
+      setMfaDisableCode("");
+      setMfaRecoveryCodes([]);
+      setSuccessMessage("Two-factor authentication has been disabled.");
+    } catch (err) {
+      setMfaDisableError(friendlyFirebaseError(err, "Failed to disable MFA."));
+    } finally {
+      setMfaDisableBusy(false);
+    }
+  }
+
+  async function handleCopyText(value) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setSuccessMessage("Copied to clipboard.");
+    } catch {
+      setError("Could not copy to clipboard.");
+    }
+  }
+
+  const otpAuthUri = mfaSetupSecret
+    ? buildOtpAuthUri({
+        secret: mfaSetupSecret,
+        accountName: user.email || user.uid,
+      })
+    : "";
+
   return (
     <main className="dashboard-page">
       <aside className="sidebar">
@@ -1176,6 +1419,15 @@ function Dashboard({ user }) {
           </button>
 
           <button
+            className={activeView === "vault" ? "nav-item active" : "nav-item"}
+            type="button"
+            onClick={() => openView("vault")}
+          >
+            <span>🔒</span>
+            Vault
+          </button>
+
+          <button
             className={
               activeView === "settings" ? "nav-item active" : "nav-item"
             }
@@ -1206,6 +1458,7 @@ function Dashboard({ user }) {
               {activeView === "notes" && "Notes"}
               {activeView === "links" && "Links"}
               {activeView === "activity" && "Activity"}
+              {activeView === "vault" && "LifeHub Vault"}
               {activeView === "settings" && "Settings"}
             </h1>
             <p className="muted">
@@ -1219,6 +1472,8 @@ function Dashboard({ user }) {
                 "Save useful websites, tools, school resources, and portfolio references."}
               {activeView === "activity" &&
                 "Review your safe audit history across files, notes, links, account actions, and AI events."}
+              {activeView === "vault" &&
+                "Encrypted secrets, private keys, and recovery codes. End-to-end encrypted with your master password."}
               {activeView === "settings" &&
                 "Manage your account, usage, security, and LifeHub preferences."}
             </p>
@@ -2374,6 +2629,10 @@ function Dashboard({ user }) {
           </section>
         )}
 
+        {activeView === "vault" && (
+          <Vault user={user} logActivity={logActivity} />
+        )}
+
         {activeView === "settings" && (
           <section className="settings-page">
             <section className="settings-grid">
@@ -2624,12 +2883,13 @@ function Dashboard({ user }) {
             </section>
 
             <section className="settings-card vault-card">
-              <p className="eyebrow">Coming later</p>
+              <p className="eyebrow">End-to-end encrypted</p>
               <h2>LifeHub Vault</h2>
               <p className="muted">
-                A future encrypted Vault will support secret files, private
-                keys, recovery codes, and sensitive documents with client-side
-                encryption.
+                Store secret files, private keys, recovery codes, and sensitive
+                strings with AES-GCM 256 encryption. Your master password is
+                derived into a key locally with PBKDF2 and never sent to the
+                server.
               </p>
 
               <div className="vault-features">
@@ -2638,6 +2898,202 @@ function Dashboard({ user }) {
                 <span>Encrypted metadata</span>
                 <span>Audit history</span>
               </div>
+
+              <button
+                type="button"
+                onClick={() => openView("vault")}
+              >
+                Open Vault
+              </button>
+            </section>
+
+            <section className="settings-card mfa-card">
+              <p className="eyebrow">Sign-in security</p>
+              <h2>Multi-factor authentication</h2>
+              <p className="muted">
+                Add a TOTP authenticator app (Google Authenticator, 1Password,
+                Authy, etc.) as a required second step on every sign-in.
+              </p>
+
+              {!mfaConfig?.enabled && !mfaSetupOpen && (
+                <button type="button" onClick={handleStartMfaSetup}>
+                  Enable two-factor authentication
+                </button>
+              )}
+
+              {mfaSetupOpen && (
+                <form
+                  className="mfa-setup-form"
+                  onSubmit={handleConfirmMfaSetup}
+                >
+                  <p>
+                    <strong>1.</strong> Scan the QR code with your authenticator
+                    app, or enter the secret manually.
+                  </p>
+
+                  <div className="mfa-qr-row">
+                    <QrCode value={otpAuthUri} size={184} alt="MFA QR code" />
+
+                    <div className="mfa-qr-meta">
+                      <div className="mfa-secret-block">
+                        <span className="mono-text">{mfaSetupSecret}</span>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => handleCopyText(mfaSetupSecret)}
+                        >
+                          Copy secret
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => handleCopyText(otpAuthUri)}
+                      >
+                        Copy otpauth link
+                      </button>
+                    </div>
+                  </div>
+
+                  <p>
+                    <strong>2.</strong> Enter the 6-digit code your app shows
+                    right now.
+                  </p>
+
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={mfaSetupCode}
+                    onChange={(event) => setMfaSetupCode(event.target.value)}
+                    placeholder="123456"
+                    maxLength={6}
+                    required
+                  />
+
+                  {mfaSetupError && (
+                    <p className="form-error">{mfaSetupError}</p>
+                  )}
+
+                  <div className="mfa-setup-actions">
+                    <button type="submit" disabled={mfaSetupBusy}>
+                      {mfaSetupBusy ? "Verifying..." : "Verify and enable"}
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={handleCancelMfaSetup}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {mfaRecoveryCodes.length > 0 && (
+                <div className="mfa-recovery-block">
+                  <h3>Recovery codes</h3>
+                  <p className="muted">
+                    Save these codes somewhere safe — each one can be used once
+                    if you lose access to your authenticator app. They are
+                    shown only this one time.
+                  </p>
+
+                  <ul className="recovery-codes-grid">
+                    {mfaRecoveryCodes.map((code) => (
+                      <li key={code} className="mono-text">
+                        {code}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mfa-setup-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() =>
+                        handleCopyText(mfaRecoveryCodes.join("\n"))
+                      }
+                    >
+                      Copy all
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={handleDownloadRecoveryCodes}
+                    >
+                      Download .txt
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => setMfaRecoveryCodes([])}
+                    >
+                      I've saved them
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {mfaConfig?.enabled && (
+                <>
+                  <div className="mfa-recovery-row">
+                    <div>
+                      <strong>Recovery codes</strong>
+                      <p className="muted">
+                        {mfaConfig.recoveryCodeHashes?.length || 0} unused codes
+                        on file. Generate a new set if you've lost or used yours.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={handleRegenerateRecoveryCodes}
+                      disabled={regenRecoveryBusy}
+                    >
+                      {regenRecoveryBusy
+                        ? "Generating..."
+                        : "Regenerate recovery codes"}
+                    </button>
+                  </div>
+
+                  <form
+                    className="mfa-disable-form"
+                    onSubmit={handleDisableMfa}
+                  >
+                    <p>
+                      Two-factor authentication is <strong>active</strong>.
+                      Enter a current code to disable it.
+                    </p>
+
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={mfaDisableCode}
+                      onChange={(event) =>
+                        setMfaDisableCode(event.target.value)
+                      }
+                      placeholder="123456"
+                      maxLength={6}
+                      required
+                    />
+
+                    {mfaDisableError && (
+                      <p className="form-error">{mfaDisableError}</p>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="danger-button"
+                      disabled={mfaDisableBusy}
+                    >
+                      {mfaDisableBusy ? "Disabling..." : "Disable MFA"}
+                    </button>
+                  </form>
+                </>
+              )}
             </section>
 
             <section className="settings-card danger-zone">
