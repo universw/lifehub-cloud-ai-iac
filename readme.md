@@ -7,13 +7,35 @@ LifeHub AI Cloud is a secure personal productivity and document management web a
 
 It helps users organize personal files, private notes, useful links, important items, profile settings, and safe activity history in one cloud-based workspace.
 
-**Live app:** https://lifehub-ai-cloud.web.app
+**Live App:** https://lifehub-ai-cloud.web.app  
+**Main Portfolio:** https://portfo-38945.web.app/  
+**Author:** Henry HoangQuan Nguyen  
+**Location:** Ho Chi Minh City, Vietnam
+
+---
+
+## Project Purpose
+
+LifeHub AI Cloud was built as a portfolio-ready cloud project to demonstrate practical skills in:
+
+- Full-stack cloud application development
+- Firebase and Google Cloud architecture
+- Authentication and user-isolated data
+- Cloud Firestore and Firebase Storage security rules
+- Serverless backend development
+- Infrastructure-as-Code with Terraform
+- CI/CD with GitHub Actions
+- Secure file and data management
+- Cloud portfolio documentation
+- Cost-aware cloud development
+
+This project is designed to show how a modern personal cloud workspace can be built using managed cloud services, serverless backend logic, secure deployment practices, and infrastructure automation.
 
 ---
 
 ## Screenshots
 
-> Screenshots are stored using relative image paths so they render correctly inside GitHub.
+Screenshots are stored using relative image paths so they render correctly inside GitHub.
 
 ### Landing Page
 
@@ -35,29 +57,29 @@ It helps users organize personal files, private notes, useful links, important i
 
 ## Overview
 
-LifeHub AI Cloud is designed as a portfolio-ready cloud application that demonstrates full-stack product thinking, Firebase development, serverless architecture, cloud security rules, infrastructure-as-code, CI/CD, and deployment workflow.
+LifeHub AI Cloud provides a secure personal workspace where users can manage files, notes, links, profile settings, important items, and account activity.
 
 The app includes:
 
 - Public landing page
 - Email/password authentication
 - Password reset
-- Account deletion flow
-- Dashboard
+- Email verification support
+- Authenticated dashboard
 - File library
-- Notes
-- Saved links
+- Notes module
+- Saved links module
 - Important item tracking
 - Activity log
-- Profile settings
+- User profile settings
 - Security center
 - Firebase Cloud Functions backend
 - Gemini AI summary prototype
-- Firebase Hosting GitHub Actions deployment
-- Build-only GitHub Actions CI workflow
+- Firebase Hosting deployment
+- GitHub Actions CI/CD workflows
 - Terraform infrastructure folder
 
-AI note summary support is implemented through Firebase Cloud Functions and Gemini API integration, but Gemini API billing is currently disabled/skipped for cost control.
+AI note summary support is implemented as a Firebase Cloud Functions prototype using Gemini API integration. Gemini API calls may be disabled or skipped when billing/quota is not available.
 
 ---
 
@@ -82,8 +104,6 @@ AI note summary support is implemented through Firebase Cloud Functions and Gemi
 - Friendly authentication error messages
 - Email verification support
 - Account deletion flow with typed confirmation
-
-Firebase Authentication supports email/password accounts and password reset emails for web apps.
 
 ### Dashboard
 
@@ -147,6 +167,16 @@ Firebase Authentication supports email/password accounts and password reset emai
 - Account deletion
 - Future encrypted Vault placeholder
 
+### Security Center
+
+- Email verification status
+- App Check monitoring status
+- Firestore security rules
+- Storage security rules
+- Risky file type blocking
+- Safe activity logging
+- Future MFA roadmap note
+
 ---
 
 ## Tech Stack
@@ -167,8 +197,7 @@ Firebase Authentication supports email/password accounts and password reset emai
 - Firebase Cloud Functions
 - Firebase App Check
 - Google Cloud Platform
-
-Firebase Hosting provides production-grade hosting for web apps and is optimized for static and single-page apps. It can deploy web apps to a global CDN with the Firebase CLI.
+- Gemini API prototype
 
 ### Infrastructure / DevOps
 
@@ -176,7 +205,8 @@ Firebase Hosting provides production-grade hosting for web apps and is optimized
 - Google Cloud Provider
 - Firebase CLI
 - Google Cloud CLI
-- Git / GitHub
+- Git
+- GitHub
 - GitHub Actions
 
 ---
@@ -193,6 +223,9 @@ React + Vite Frontend
 Firebase Hosting
     |
     +--> Firebase Authentication
+    |       - email/password login
+    |       - password reset
+    |       - email verification
     |
     +--> Cloud Firestore
     |       - user profile
@@ -205,6 +238,10 @@ Firebase Hosting
     |       - uploaded user files
     |
     +--> Firebase Cloud Functions
-            - AI note summary callable function
-            - Gemini API integration
-            - Secret Manager integration
+    |       - callable backend functions
+    |       - AI note summary prototype
+    |       - Gemini API integration
+    |       - Secret Manager integration
+    |
+    +--> Firebase App Check
+            - backend abuse protection monitorings
